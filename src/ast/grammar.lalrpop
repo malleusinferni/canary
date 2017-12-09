@@ -1,0 +1,125 @@
+use ast::*;
+//use token::*;
+use super::Error;
+
+grammar;
+
+pub module: Vec<Def> = {
+    <items:(<def?> ";")*> => {
+        items.into_iter().filter_map(|a| a).collect()
+    },
+};
+
+pub def: Def = {
+    "def" <name:ident> "(" <args:comma<ident>?> ")" ":" ";" "BEGIN" <body:statements> "END" => {
+        let args = Args(args.unwrap_or_else(|| vec![]));
+        Def { name, args, body }
+    },
+};
+
+pub statements: Vec<Stmt> = {
+    <items:(<stmt?> ";")*> => {
+        items.into_iter().filter_map(|a| a).collect()
+    },
+};
+
+stmt: Stmt = {
+    "let" <names:comma<ident>> => {
+        Stmt::Let { names }
+    },
+
+    <lhs:ident> "=" <rhs:expr> => {
+        Stmt::Assign { lhs, rhs }
+    },
+
+    <name:ident> "(" <args:comma<expr>?> ")" => {
+        let args = args.unwrap_or_else(|| vec![]);
+        Stmt::Call { name, args }
+    },
+};
+
+expr: Expr = {
+    <lhs:term> "+" <rhs:expr> => {
+        Expr::Binop {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op: Binop::Add,
+        }
+    },
+
+    <lhs:term> "-" <rhs:expr> => {
+        Expr::Binop {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op: Binop::Sub,
+        }
+    },
+
+    <term> => <>,
+};
+
+term: Expr = {
+    <lhs:factor> "*" <rhs:term> => {
+        Expr::Binop {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op: Binop::Mul,
+        }
+    },
+
+    <lhs:factor> "/" <rhs:term> => {
+        Expr::Binop {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op: Binop::Div,
+        }
+    },
+
+    <factor> => <>,
+};
+
+factor: Expr = {
+    <int> => Expr::Literal(Literal::Int(<>)),
+    <string> => Expr::Literal(Literal::Str(<>)),
+    <ident> => Expr::Name(<>),
+    "[" <comma<expr>> "]" => Expr::Literal(Literal::List(<>)),
+    "(" <expr> ")" => <>,
+};
+
+#[inline]
+comma<T>: Vec<T> = {
+    <many:(<T> ",")*> <last:T> => {
+        let mut many = many;
+        many.push(last);
+        many
+    },
+};
+
+extern {
+    type Location = usize;
+    type Error = Error;
+
+    enum Token {
+        "def" => Token::DEF,
+        "let" => Token::LET,
+        "(" => Token::LPAR,
+        ")" => Token::RPAR,
+        "[" => Token::LSQB,
+        "]" => Token::RSQB,
+        ":" => Token::COLON,
+        "=" => Token::EQUAL,
+        ";" => Token::EOL,
+        "," => Token::COMMA,
+        "+" => Token::ADD,
+        "-" => Token::SUB,
+        "/" => Token::DIV,
+        "*" => Token::MUL,
+        "BEGIN" => Token::BEGIN,
+        "END" => Token::END,
+        int => Token::INT(<Int>),
+        ident => Token::ID(<Ident>),
+        string => Token::STR(<Str>),
+    }
+}
+
+// vim: ft=rust
