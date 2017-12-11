@@ -49,7 +49,7 @@ impl Assembler {
 
             Stmt::Return { rhs } => {
                 self.tr_expr(rhs.unwrap_or(Expr::Literal(Literal::Nil)))?;
-                self.ret();
+                self.emit(Op::RET);
             },
 
             Stmt::If { clauses, last } => {
@@ -59,7 +59,7 @@ impl Assembler {
                 for (cond, body) in clauses.into_iter() {
                     let label = self.gensym()?;
                     self.tr_expr(cond)?;
-                    self.jump_nonzero(label.clone());
+                    self.emit(Op::JNZ { dst: label.clone() });
                     bodies.push((label, body));
                 }
 
@@ -67,7 +67,7 @@ impl Assembler {
                     self.tr_stmt(stmt)?;
                 }
 
-                self.jump(after.clone());
+                self.emit(Op::JUMP { dst: after.clone() });
 
                 for (label, body) in bodies.into_iter() {
                     self.label(label)?;
@@ -76,7 +76,7 @@ impl Assembler {
                         self.tr_stmt(stmt)?;
                     }
 
-                    self.jump(after.clone());
+                    self.emit(Op::JUMP { dst: after.clone() });
                 }
 
                 self.label(after)?;
@@ -87,7 +87,7 @@ impl Assembler {
                 let after = self.gensym()?;
 
                 self.tr_expr(Expr::Not(test.clone().into()))?;
-                self.jump_nonzero(after.clone());
+                self.emit(Op::JNZ { dst: after.clone() });
 
                 self.label(before.clone())?;
                 for stmt in body.into_iter() {
@@ -95,14 +95,14 @@ impl Assembler {
                 }
 
                 self.tr_expr(test)?;
-                self.jump_nonzero(before);
+                self.emit(Op::JNZ { dst: before.clone() });
 
                 self.label(after)?;
             },
 
             Stmt::Bare { rhs } => {
                 self.tr_expr(rhs)?;
-                self.discard();
+                self.emit(Op::DROP);
             },
 
             Stmt::Nop => {
@@ -122,15 +122,16 @@ impl Assembler {
             },
 
             Expr::Literal(Literal::Nil) => {
-                self.push_nil();
+                self.emit(Op::NIL);
             },
 
             Expr::Literal(Literal::Int(int)) => {
-                self.push_int(int);
+                self.emit(Op::PUSHI { int });
             },
 
             Expr::Literal(Literal::Str(string)) => {
-                self.push_str(&string);
+                let string = self.intern(&string);
+                self.emit(Op::PUSHS { string });
             },
 
             Expr::Literal(Literal::List(items)) => {
@@ -140,21 +141,21 @@ impl Assembler {
                     self.tr_expr(item)?;
                 }
 
-                self.list(len);
+                self.emit(Op::LIST { len });
             },
 
             Expr::Literal(Literal::Record(pairs)) => {
-                self.rec();
+                self.emit(Op::REC);
 
                 for (key, val) in pairs.into_iter() {
-                    self.push_id(key);
+                    self.emit(Op::PUSHN { name: key });
                     self.tr_expr(val)?;
-                    self.insert();
+                    self.emit(Op::INS);
                 }
             },
 
             Expr::Literal(Literal::Ident(id)) => {
-                self.push_id(id);
+                self.emit(Op::PUSHN { name: id });
             },
 
             Expr::Binop { lhs, op, rhs } => {
@@ -165,7 +166,7 @@ impl Assembler {
 
             Expr::Not(expr) => {
                 self.tr_expr(*expr)?;
-                self.not();
+                self.emit(Op::NOT);
             },
 
             Expr::Call { name, args } => {
@@ -234,12 +235,8 @@ impl Assembler {
         }
     }
 
-    pub fn jump(&mut self, dst: Ident) {
-        self.program.code.push(Op::JUMP { dst });
-    }
-
-    pub fn jump_nonzero(&mut self, dst: Ident) {
-        self.program.code.push(Op::JNZ { dst });
+    fn emit(&mut self, op: Op<Ident>) {
+        self.program.code.push(op);
     }
 
     pub fn gensym(&mut self) -> Result<Ident> {
@@ -274,44 +271,19 @@ impl Assembler {
 
     pub fn load(&mut self, id: Ident) -> Result<()> {
         let src = self.lookup(id)?;
-        self.program.code.push(Op::LOAD { src });
+        self.emit(Op::LOAD { src });
         Ok(())
     }
 
     pub fn store(&mut self, id: Ident) -> Result<()> {
         let dst = self.lookup(id)?;
-        self.program.code.push(Op::STORE { dst });
+        self.emit(Op::STORE { dst });
         Ok(())
-    }
-
-    pub fn push_str(&mut self, s: &str) {
-        let string = self.intern(s);
-        self.program.code.push(Op::PUSHS { string });
-    }
-
-    pub fn push_int(&mut self, int: i32) {
-        self.program.code.push(Op::PUSHI { int })
-    }
-
-    pub fn push_id(&mut self, name: Ident) {
-        self.program.code.push(Op::PUSHN { name })
-    }
-
-    pub fn push_nil(&mut self) {
-        self.program.code.push(Op::NIL);
-    }
-
-    pub fn discard(&mut self) {
-        self.program.code.push(Op::DROP);
-    }
-
-    pub fn ret(&mut self) {
-        self.program.code.push(Op::RET);
     }
 
     pub fn call(&mut self, name: &str, argc: usize) -> Result<()> {
         let name = Ident::new(self.intern(name))?;
-        self.program.code.push(Op::CALL { name, argc });
+        self.emit(Op::CALL { name, argc });
         Ok(())
     }
 
@@ -324,23 +296,7 @@ impl Assembler {
             ast::Binop::Idx => Binop::IDX,
         };
 
-        self.program.code.push(Op::BINOP { op });
-    }
-
-    pub fn not(&mut self) {
-        self.program.code.push(Op::NOT);
-    }
-
-    pub fn list(&mut self, len: usize) {
-        self.program.code.push(Op::LIST { len });
-    }
-
-    pub fn rec(&mut self) {
-        self.program.code.push(Op::REC);
-    }
-
-    pub fn insert(&mut self) {
-        self.program.code.push(Op::INS);
+        self.emit(Op::BINOP { op });
     }
 
     fn intern(&mut self, s: &str) -> Str {
@@ -401,8 +357,10 @@ impl Assembler {
 fn hello() {
     let mut asm = Assembler::new();
 
-    asm.push_str("Hello, ");
-    asm.push_str("world.");
+    let string = asm.intern("Hello, ");
+    asm.emit(Op::PUSHS { string });
+    let string = asm.intern("world.");
+    asm.emit(Op::PUSHS { string });
     asm.call("str", 2).unwrap();
     asm.call("print", 1).unwrap();
 
