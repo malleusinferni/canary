@@ -6,7 +6,7 @@ use ident::*;
 use value::*;
 
 pub struct Program {
-    code: Vec<Op>,
+    code: Vec<Op<Ident>>,
     labels: HashMap<Ident, usize>,
     functions: HashMap<Ident, (Argc, Func)>,
 }
@@ -33,7 +33,7 @@ pub enum Argc {
 }
 
 #[derive(Clone, Debug)]
-pub enum Op {
+pub enum Op<Label=usize> {
     RET,
     DROP,
     NOT,
@@ -49,8 +49,8 @@ pub enum Op {
     PUSHN { name: Ident, },
     LIST { len: usize, },
     REC,
-    JUMP { dst: Ident, },
-    JNZ { dst: Ident, },
+    JUMP { dst: Label, },
+    JNZ { dst: Label, },
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -63,7 +63,7 @@ pub enum Binop {
 }
 
 impl Program {
-    pub fn fetch(&self, pc: usize) -> Result<Op> {
+    pub fn fetch(&self, pc: usize) -> Result<Op<Ident>> {
         self.code.get(pc).cloned().ok_or(Error::IndexOutOfBounds)
     }
 
