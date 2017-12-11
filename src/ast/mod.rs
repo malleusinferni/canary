@@ -27,11 +27,6 @@ pub enum Stmt {
         rhs: Expr,
     },
 
-    Call {
-        name: Ident,
-        args: Vec<Expr>,
-    },
-
     Return {
         rhs: Option<Expr>,
     },
@@ -41,12 +36,21 @@ pub enum Stmt {
         last: Vec<Stmt>,
     },
 
+    Bare {
+        rhs: Expr,
+    },
+
     Nop,
 }
 
 #[derive(Clone, Debug)]
 pub enum Expr {
     Name(Ident),
+
+    Call {
+        name: Ident,
+        args: Vec<Expr>,
+    },
 
     Literal(Literal),
 
@@ -84,17 +88,6 @@ impl Assembler {
             Stmt::My { lhs, rhs } => {
                 self.tr_expr(rhs.unwrap_or(Expr::Literal(Literal::Nil)))?;
                 self.local(lhs)?;
-            },
-
-            Stmt::Call { name, args } => {
-                let argc = args.len();
-
-                for arg in args.into_iter() {
-                    self.tr_expr(arg)?;
-                }
-
-                self.call(name.as_ref(), argc)?;
-                self.discard();
             },
 
             Stmt::Assign { lhs, rhs } => {
@@ -135,6 +128,11 @@ impl Assembler {
                 }
 
                 self.label(after)?;
+            },
+
+            Stmt::Bare { rhs } => {
+                self.tr_expr(rhs)?;
+                self.discard();
             },
 
             Stmt::Nop => {
@@ -198,6 +196,16 @@ impl Assembler {
                     Binop::Mul => self.mul(),
                 }
             },
+
+            Expr::Call { name, args } => {
+                let argc = args.len();
+
+                for arg in args.into_iter() {
+                    self.tr_expr(arg)?;
+                }
+
+                self.call(name.as_ref(), argc)?;
+            },
         }
 
         Ok(())
@@ -238,9 +246,11 @@ fn translation() {
                 lhs: x.clone(),
                 rhs: Expr::Literal(Literal::Str("world".into())),
             },
-            Stmt::Call {
-                name: print.clone(),
-                args: vec![Expr::Name(x.clone())],
+            Stmt::Bare {
+                rhs: Expr::Call {
+                    name: print.clone(),
+                    args: vec![Expr::Name(x.clone())],
+                },
             },
         },
     };

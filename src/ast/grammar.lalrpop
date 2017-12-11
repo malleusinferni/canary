@@ -38,13 +38,12 @@ simple_stmt: Stmt = {
         Stmt::Assign { lhs, rhs }
     },
 
-    <name:ident> "(" <args:comma<expr>?> ")" => {
-        let args = args.unwrap_or_else(|| vec![]);
-        Stmt::Call { name, args }
-    },
-
     "return" <rhs:expr?> => {
         Stmt::Return { rhs }
+    },
+
+    <rhs:expr> => {
+        Stmt::Bare { rhs }
     },
 };
 
@@ -103,9 +102,18 @@ term: Expr = {
 
 factor: Expr = {
     <int> => Expr::Literal(Literal::Int(<>)),
+
     <string> => Expr::Literal(Literal::Str(<>)),
+
     <ident> => Expr::Name(<>),
+
+    <name:ident> "(" <args:comma<expr>?> ")" => {
+        let args = args.unwrap_or_else(|| vec![]);
+        Expr::Call { name, args }
+    },
+
     "[" <comma<expr>> "]" => Expr::Literal(Literal::List(<>)),
+
     "(" <expr> ")" => <>,
 };
 
