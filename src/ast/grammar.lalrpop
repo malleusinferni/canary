@@ -9,7 +9,7 @@ pub module: Module = {
 };
 
 pub def: Def = {
-    "sub" <name:ident> "(" <args:comma<ident>?> ")" <body:block> => {
+    "sub" <name:word> "(" <args:comma<var>?> ")" <body:block> => {
         let args = Args(args.unwrap_or_else(|| vec![]));
         Def { name, args, body }
     },
@@ -30,11 +30,11 @@ stmt: Option<Stmt> = {
 };
 
 simple_stmt: Stmt = {
-    "my" <lhs:ident> <rhs:("=" <expr>)?> => {
+    "my" <lhs:var> <rhs:("=" <expr>)?> => {
         Stmt::My { lhs, rhs }
     },
 
-    <lhs:ident> "=" <rhs:expr> => {
+    <lhs:var> "=" <rhs:expr> => {
         Stmt::Assign { lhs, rhs }
     },
 
@@ -117,9 +117,9 @@ factor: Expr = {
 
     <string> => Expr::Literal(Literal::Str(<>)),
 
-    <ident> => Expr::Name(<>),
+    <var> => Expr::Name(<>),
 
-    <name:ident> "(" <args:comma<expr>?> ")" => {
+    <name:word> "(" <args:comma<expr>?> ")" => {
         let args = args.unwrap_or_else(|| vec![]);
         Expr::Call { name, args }
     },
@@ -164,7 +164,8 @@ extern {
         "/" => Token::DIV,
         "*" => Token::MUL,
         int => Token::INT(<Int>),
-        ident => Token::ID(<Ident>),
+        word => Token::WORD(<Ident>),
+        var => Token::VAR(<Ident>),
         string => Token::STR(<Str>),
     }
 }

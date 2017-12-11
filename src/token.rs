@@ -4,7 +4,8 @@ use value::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
-    ID(Ident),
+    WORD(Ident),
+    VAR(Ident),
     INT(Int),
     STR(Str),
     LPAR,
@@ -114,6 +115,25 @@ impl<'a> Iterator for Tokenizer<'a> {
                 return Some(Err(Error::MalformedString));
             },
 
+            '$' => {
+                let mut word = String::new();
+                let w = self.input.next()?;
+
+                if !w.is_alphabetic() {
+                    unimplemented!("Special vars");
+                }
+
+                word.push(w);
+
+                while let Some(&w) = self.input.peek() {
+                    if !in_ident(w) { break; }
+                    word.push(w);
+                    self.input.next();
+                }
+
+                Token::VAR(self.strings.intern(word).unwrap())
+            },
+
             w if w.is_alphabetic() => {
                 let mut word = String::new();
                 word.push(w);
@@ -130,7 +150,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                     "else" => Token::ELSE,
                     "while" => Token::WHILE,
                     "return" => Token::RETURN,
-                    _ => Token::ID(self.strings.intern(word).unwrap()),
+                    _ => Token::WORD(self.strings.intern(word).unwrap()),
                 }
             },
 
@@ -176,7 +196,8 @@ impl fmt::Display for Token {
             Token::SUB => write!(f, "-"),
             Token::DIV => write!(f, "/"),
             Token::MUL => write!(f, "*"),
-            Token::ID(ref id) => write!(f, "{}", id),
+            Token::WORD(ref id) => write!(f, "{}", id),
+            Token::VAR(ref id) => write!(f, "${}", id),
             Token::STR(ref s) => write!(f, "{:?}", s),
             Token::INT(i) => write!(f, "{}", i),
             Token::LPAR => write!(f, "("),
@@ -191,7 +212,7 @@ impl fmt::Display for Token {
 
 #[test]
 fn syntax() {
-    let src = "sub foo() { return bar; }";
+    let src = "sub foo() { return $bar; }";
     let mut t = Tokenizer::new(src);
     let foo = t.strings.intern("foo").unwrap();
     let bar = t.strings.intern("bar").unwrap();
@@ -199,12 +220,12 @@ fn syntax() {
     let items = t.collect::<Result<Vec<_>, _>>().unwrap();
     assert_eq!(&items, &[
                Token::DEF,
-               Token::ID(foo),
+               Token::WORD(foo),
                Token::LPAR,
                Token::RPAR,
                Token::LCBR,
                Token::RETURN,
-               Token::ID(bar),
+               Token::VAR(bar),
                Token::EOL,
                Token::RCBR,
     ]);

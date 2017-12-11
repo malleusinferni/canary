@@ -1,12 +1,12 @@
 sub main() {
-    my x = 4;
+    my $x = 4;
 
-    while x {
-        x = x - 1;
+    while $x {
+        $x = $x - 1;
         hello("world");
     }
 }
 
-sub hello(name) {
-    print("Hello, ", name);
+sub hello($name) {
+    print("Hello, ", $name);
 }

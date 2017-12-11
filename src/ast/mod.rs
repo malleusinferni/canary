@@ -135,7 +135,7 @@ fn syntax() {
     use token::Tokenizer;
 
     let src = &[
-        "sub assign() { x = y; }",
+        "sub assign() { $x = $y; }",
         "sub simple_if() { if 0 { } }",
         "sub if_else() { if 1 { 1; } else if 2 { 2; } else { 3; } }",
         "sub while_loop() { while 1 { } }",
