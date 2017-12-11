@@ -180,6 +180,8 @@ pub fn translate(ast: Vec<Def>) -> Result<Program> {
             asm.tr_stmt(stmt)?;
         }
 
+        // Implicit return nil at end of function
+        asm.tr_stmt(Stmt::Return { rhs: None })?;
         asm.undef()?;
     }
 
