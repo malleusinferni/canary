@@ -1,24 +1,56 @@
+use std::collections::HashSet;
+
 use super::*;
 use value::Str;
+
+#[derive(Clone, Debug)]
+pub struct Strings(HashSet<Str>);
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Ident(Str);
 
-impl Ident {
-    pub fn new<S>(name: S) -> Result<Self> where S: Into<Str> {
-        let name = name.into();
+pub trait Interned: Sized {
+    fn from_arc(&Str) -> Result<Self>;
+}
 
-        let copy = name.clone();
-        let die = || Err(Error::InvalidIdent {
-            input: copy.as_ref().to_owned()
-        });
+impl Strings {
+    pub fn new() -> Self {
+        Strings(HashSet::new())
+    }
 
-        match name.chars().next() {
-            Some(ch) if ch.is_alphabetic() => (),
-            _ => die()?,
+    pub fn intern<I, O>(&mut self, input: I) -> Result<O>
+        where I: AsRef<str>, O: Interned
+    {
+        let input = input.as_ref();
+
+        if !self.0.contains(input) {
+            self.0.insert(input.into());
         }
 
-        for ch in name.chars().skip(1) {
+        O::from_arc(self.0.get(input).expect("We just inserted this"))
+    }
+}
+
+impl Interned for Str {
+    fn from_arc(arc: &Str) -> Result<Self> {
+        Ok(arc.clone())
+    }
+}
+
+impl Interned for Ident {
+    fn from_arc(arc: &Str) -> Result<Self> {
+        let die = || {
+            let input = String::from(arc.as_ref());
+            Err(Error::InvalidIdent { input })
+        };
+
+        let mut chars = arc.chars();
+        match chars.next() {
+            Some(ch) if ch.is_alphabetic() => (),
+            _ => die()?,
+        };
+
+        for ch in chars {
             if ch.is_alphabetic() || ch.is_digit(10) || ch == '_' {
                 continue;
             }
@@ -26,7 +58,7 @@ impl Ident {
             die()?;
         }
 
-        Ok(Ident(name))
+        Ok(Ident(arc.clone()))
     }
 }
 

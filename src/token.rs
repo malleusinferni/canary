@@ -46,12 +46,14 @@ impl<T: Iterator<Item=Result<Token>>> Iterator for Spanned<T> {
 
 pub struct Tokenizer<'a> {
     input: Peekable<Chars<'a>>,
+    strings: Strings,
 }
 
 impl<'a> Tokenizer<'a> {
     pub fn new(src: &'a str) -> Self {
         Tokenizer {
             input: src.chars().peekable(),
+            strings: Strings::new(),
         }
     }
 
@@ -128,7 +130,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                     "else" => Token::ELSE,
                     "while" => Token::WHILE,
                     "return" => Token::RETURN,
-                    _ => Token::ID(Ident::new(word).unwrap()),
+                    _ => Token::ID(self.strings.intern(word).unwrap()),
                 }
             },
 
@@ -190,16 +192,19 @@ impl fmt::Display for Token {
 #[test]
 fn syntax() {
     let src = "sub foo() { return bar; }";
-    let t = Tokenizer::new(src);
+    let mut t = Tokenizer::new(src);
+    let foo = t.strings.intern("foo").unwrap();
+    let bar = t.strings.intern("bar").unwrap();
+
     let items = t.collect::<Result<Vec<_>, _>>().unwrap();
     assert_eq!(&items, &[
                Token::DEF,
-               Token::ID(Ident::new("foo").unwrap()),
+               Token::ID(foo),
                Token::LPAR,
                Token::RPAR,
                Token::LCBR,
                Token::RETURN,
-               Token::ID(Ident::new("bar").unwrap()),
+               Token::ID(bar),
                Token::EOL,
                Token::RCBR,
     ]);

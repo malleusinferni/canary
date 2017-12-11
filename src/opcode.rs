@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::*;
@@ -8,7 +8,7 @@ use value::*;
 pub struct Program {
     pub begin: InterpretedFn,
     pub functions: HashMap<Ident, (Argc, Func)>,
-    pub strings: HashSet<Str>,
+    pub strings: Strings,
 }
 
 pub type NativeFn = Arc<Fn(Vec<Value>) -> Result<Value>>;
@@ -76,16 +76,6 @@ impl Program {
                 found: argv.len(),
             }),
         }
-    }
-
-    pub fn intern<S: AsRef<str>>(&mut self, string: S) -> Str {
-        let string = string.as_ref();
-
-        if !self.strings.contains(string) {
-            self.strings.insert(Str::from(string));
-        }
-
-        self.strings.get(string).cloned().unwrap()
     }
 }
 

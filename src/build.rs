@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::*;
@@ -8,7 +8,7 @@ use opcode::*;
 
 pub struct Assembler<'a> {
     code: Vec<Op<Sym>>,
-    strings: &'a mut HashSet<Str>,
+    strings: &'a mut Strings,
     labels: HashMap<Sym, usize>,
     scopes: Vec<HashMap<Ident, usize>>,
     next_gensym: usize,
@@ -47,7 +47,7 @@ impl Program {
         where F: 'static + Fn(Vec<Value>) -> Result<V>,
               V: Into<Value>
     {
-        let name = Ident::new(self.intern(name))?;
+        let name = self.strings.intern(name)?;
         let body = Func::Native(Arc::new(move |args| {
             let result = body(args)?;
             Ok(result.into())
@@ -63,7 +63,7 @@ impl Program {
 
         let mut std = Program {
             begin: InterpretedFn::from_vec(vec![]),
-            strings: HashSet::new(),
+            strings: Strings::new(),
             functions: HashMap::new(),
         };
 
@@ -107,7 +107,7 @@ impl ast::Module {
 }
 
 impl<'a> Assembler<'a> {
-    fn new(strings: &'a mut HashSet<Str>, args: Vec<Ident>) -> Self {
+    fn new(strings: &'a mut Strings, args: Vec<Ident>) -> Self {
         let mut scope = HashMap::new();
         for (i, arg) in args.into_iter().enumerate() {
             scope.insert(arg, i);
@@ -306,7 +306,7 @@ impl<'a> Assembler<'a> {
             },
 
             Literal::Str(string) => {
-                let string = self.intern(&string);
+                let string = self.strings.intern(&string)?;
                 self.emit(Op::PUSHS { string });
             },
 
@@ -379,7 +379,7 @@ impl<'a> Assembler<'a> {
     }
 
     fn call(&mut self, name: &str, argc: usize) -> Result<()> {
-        let name = Ident::new(self.intern(name))?;
+        let name = self.strings.intern(name)?;
         self.emit(Op::CALL { name, argc });
         Ok(())
     }
@@ -394,13 +394,5 @@ impl<'a> Assembler<'a> {
         };
 
         self.emit(Op::BINOP { op });
-    }
-
-    fn intern(&mut self, s: &str) -> Str {
-        if !self.strings.contains(s) {
-            self.strings.insert(s.into());
-        }
-
-        self.strings.get(s).cloned().unwrap()
     }
 }

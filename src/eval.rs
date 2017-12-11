@@ -1,5 +1,3 @@
-use std::collections::{HashSet};
-
 use std::iter::FromIterator;
 
 use super::*;
@@ -8,7 +6,7 @@ use opcode::*;
 
 pub struct World {
     program: Program,
-    strings: HashSet<Str>,
+    strings: Strings,
     globals: Record,
     frame: Frame,
     saved: Vec<Frame>,
@@ -30,14 +28,14 @@ impl World {
             },
 
             program,
-            strings: HashSet::new(),
+            strings: Strings::new(),
             globals: Record::default(),
             saved: vec![],
         }
     }
 
     pub fn exec(&mut self, func: &str, args: &[Value]) -> Result<Value> {
-        let func = Ident::new(self.intern(func))?;
+        let func = self.strings.intern(func)?;
         self.fncall(&func, args.to_owned())?;
 
         while self.saved.len() > 0 {
@@ -206,15 +204,6 @@ impl World {
         let start = self.frame.locals.len().checked_sub(len)
             .ok_or(Error::IndexOutOfBounds)?;
         Ok(self.frame.locals.drain(start ..).collect())
-    }
-
-    pub fn intern(&mut self, string: &str) -> Str {
-        if !self.strings.contains(string) {
-            self.strings.insert(string.into());
-        }
-
-        self.strings.get(string).cloned()
-            .expect("We just inserted this")
     }
 }
 

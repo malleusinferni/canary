@@ -98,22 +98,24 @@ pub enum Literal {
 
 #[test]
 fn translation() {
-    let x = Ident::new("x").unwrap();
-    let hello = Ident::new("hello").unwrap();
-    let print = Ident::new("print").unwrap();
+    let mut strings = Strings::new();
+    let x: Ident = strings.intern("x").unwrap();
+    let hello = strings.intern("hello").unwrap();
+    let world = strings.intern("world").unwrap();
+    let print = strings.intern("print").unwrap();
 
     let src = Def {
-        name: hello.clone(),
+        name: hello,
         args: Args(vec![]),
         body: vec!{
             Stmt::My { lhs: x.clone(), rhs: None, },
             Stmt::Assign {
                 lhs: x.clone(),
-                rhs: Expr::Literal(Literal::Str("world".into())),
+                rhs: Expr::Literal(Literal::Str(world)),
             },
             Stmt::Bare {
                 rhs: Expr::Call {
-                    name: print.clone(),
+                    name: print,
                     args: vec![Expr::Name(x.clone())],
                 },
             },
