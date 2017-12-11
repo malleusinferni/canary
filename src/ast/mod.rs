@@ -6,7 +6,7 @@ mod grammar {
     include!(concat!(env!("OUT_DIR"), "/ast/grammar.rs"));
 }
 
-pub use self::grammar::{parse_def, parse_block, parse_module};
+pub use self::grammar::{parse_def, parse_block_body, parse_module};
 
 #[derive(Clone, Debug)]
 pub struct Def {

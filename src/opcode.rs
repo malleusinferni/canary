@@ -295,6 +295,17 @@ impl Assembler {
             Str::from(map_to_string(args).concat())
         }))?;
 
+        self.def_native("assert", Exactly(1), |args| Ok({
+            let arg = args.into_iter().next().unwrap();
+            assert!(Int::extract(arg)? != 0);
+        }))?;
+
+        self.def_native("assert_eq", Exactly(2), |mut args| Ok({
+            let rhs = args.pop().unwrap();
+            let lhs = args.pop().unwrap();
+            assert_eq!(lhs, rhs);
+        }))?;
+
         Ok(())
     }
 }

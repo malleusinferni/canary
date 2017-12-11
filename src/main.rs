@@ -47,13 +47,13 @@ fn repl() -> Result<()> {
         println!("Read: {:?}", &input);
 
         use canary::token::Tokenizer;
-        use canary::ast::parse_block;
+        use canary::ast::parse_block_body;
 
         let tokens = Tokenizer::new(&input).collect::<Result<Vec<_>, _>>()?;
 
         println!("Tokenized: {:?}", &tokens);
 
-        let ast = parse_block(Tokenizer::new(&input).spanned())?;
+        let ast = parse_block_body(Tokenizer::new(&input).spanned())?;
 
         println!("Parsed: {:?}", ast);
     }

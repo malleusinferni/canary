@@ -15,10 +15,12 @@ pub def: Def = {
     },
 };
 
-pub block: Vec<Stmt> = {
-    "{" <items:stmt*> "}" => {
-        items.into_iter().filter_map(|a| a).collect()
-    },
+block: Vec<Stmt> = {
+    "{" <block_body> "}",
+};
+
+pub block_body: Vec<Stmt> = {
+    <stmt*> => (<>).into_iter().filter_map(|a| a).collect(),
 };
 
 stmt: Option<Stmt> = {
