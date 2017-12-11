@@ -16,12 +16,18 @@ pub def: Def = {
 };
 
 pub block: Vec<Stmt> = {
-    "{" <items:(<stmt?> ";")*> "}" => {
+    "{" <items:stmt*> "}" => {
         items.into_iter().filter_map(|a| a).collect()
     },
 };
 
-stmt: Stmt = {
+stmt: Option<Stmt> = {
+    <simple_stmt?> ";" => (<>),
+
+    <block_stmt> => Some(<>),
+};
+
+simple_stmt: Stmt = {
     "my" <lhs:ident> <rhs:("=" <expr>)?> => {
         Stmt::My { lhs, rhs }
     },
@@ -38,14 +44,16 @@ stmt: Stmt = {
     "return" <rhs:expr?> => {
         Stmt::Return { rhs }
     },
+};
 
+block_stmt: Stmt = {
     "if" <first:(<expr> <block>)>
-        //<rest:("else" "if" <expr> <block>)*>
+        <rest:("else" "if" <expr> <block>)*>
         <last:("else" <block>)?>
         =>
     {
-        let clauses = vec![first];
-        //clauses.extend(rest.into_iter());
+        let mut clauses = vec![first];
+        clauses.extend(rest.into_iter());
         let last = last.unwrap_or(vec![]);
         Stmt::If { clauses, last }
     },

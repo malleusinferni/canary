@@ -253,12 +253,22 @@ fn syntax() {
     use ast::grammar::parse_def;
     use token::Tokenizer;
 
-    let src = "sub foo() { x = y; }";
-    let tokens = Tokenizer::new(src).collect::<Result<Vec<_>, _>>().unwrap();
-    println!("Tokens: {:?}", tokens);
+    let src = &[
+        "sub assign() { x = y; }",
+        "sub simple_if() { if 0 { } }",
+        "sub if_else() { if 1 {  } else if 2 {  } else {  } }",
+    ];
 
-    parse_def(Tokenizer::new(src).spanned()).unwrap_or_else(|err| {
-        println!("ERROR: {}", err);
-        panic!("Aborting");
-    });
+    for src in src {
+        parse_def(Tokenizer::new(src).spanned()).unwrap_or_else(|err| {
+            println!("ERROR: {}", err);
+            let tokens: Vec<_> = Tokenizer::new(src)
+                .collect::<Result<_, _>>()
+                .unwrap();
+
+            println!("Tokens: {:?}", tokens);
+
+            panic!("Test failed");
+        });
+    }
 }
