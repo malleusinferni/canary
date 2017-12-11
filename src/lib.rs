@@ -52,8 +52,17 @@ pub enum Error {
     #[fail(display="incorrect indentation")]
     IncorrectIndent,
 
+    #[fail(display="malformed string")]
+    MalformedString,
+
     #[fail(display="token cannot start with {:?}", ch)]
     UnimplementedToken { ch: char, },
+
+    #[fail(display="illegal add")]
+    IllegalAdd,
+
+    #[fail(display="illegal multiply")]
+    IllegalMultiply,
 
     #[fail(display="divided by zero")]
     DividedByZero,
@@ -61,8 +70,29 @@ pub enum Error {
     #[fail(display="negative repetition")]
     NegativeRepetition,
 
-    #[fail(display="ok")]
-    Okay,
+    #[fail(display="negative index")]
+    NegativeIndex,
+
+    #[fail(display="index out of bounds")]
+    IndexOutOfBounds,
+
+    #[fail(display="no such label")]
+    NoSuchLabel,
+
+    #[fail(display="nested functions are unsupported")]
+    NonStaticFunction,
+
+    #[fail(display="internal compiler error")]
+    InternalCompilerErr,
+
+    #[fail(display="label redefined")]
+    LabelRedefined,
+
+    #[fail(display="variable renamed in same scope")]
+    VariableRenamed,
+
+    #[fail(display="variable not defined")]
+    VariableUndefined,
 
     #[fail(display="{}", parse)]
     Parse {

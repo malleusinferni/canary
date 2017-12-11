@@ -64,16 +64,16 @@ pub enum Binop {
 
 impl Program {
     pub fn fetch(&self, pc: usize) -> Result<Op> {
-        self.code.get(pc).cloned().ok_or(Error::Okay)
+        self.code.get(pc).cloned().ok_or(Error::IndexOutOfBounds)
     }
 
     pub fn jump(&self, label: Ident) -> Result<usize> {
-        self.labels.get(&label).cloned().ok_or(Error::Okay)
+        self.labels.get(&label).cloned().ok_or(Error::NoSuchLabel)
     }
 
     pub fn call(&self, name: Ident, argv: &[Value]) -> Result<Func> {
         let (wanted, func) = self.functions.get(&name).cloned()
-            .ok_or(Error::Okay)?;
+            .ok_or(Error::NoSuchLabel)?;
 
         match wanted {
             Argc::Exactly(argc) if argc == argv.len() => Ok(func),
@@ -125,13 +125,13 @@ impl Assembler {
 
             Ok(())
         } else {
-            Err(Error::Okay)
+            Err(Error::NonStaticFunction)
         }
     }
 
     pub fn undef(&mut self) -> Result<()> {
         if self.scopes.len() != 1 {
-            Err(Error::Okay)
+            Err(Error::InternalCompilerErr)
         } else {
             self.scopes.clear();
             Ok(())
@@ -140,7 +140,7 @@ impl Assembler {
 
     pub fn label(&mut self, id: Ident) -> Result<()> {
         if self.program.labels.contains_key(&id) {
-            Err(Error::Okay)
+            Err(Error::LabelRedefined)
         } else {
             let len = self.program.code.len();
             self.program.labels.insert(id, len);
@@ -159,20 +159,21 @@ impl Assembler {
     pub fn gensym(&mut self) -> Result<Ident> {
         let id = Ident::new(format!("gensym_{}", self.next_gensym))?;
         self.next_gensym = self.next_gensym.checked_add(1)
-            .ok_or(Error::Okay)?;
+            .ok_or(Error::InternalCompilerErr)?;
         Ok(id)
     }
 
     pub fn local(&mut self, id: Ident) -> Result<()> {
         let index = self.scopes.iter().map(|scope| scope.len()).sum();
 
-        self.scopes.last_mut().ok_or(Error::Okay).and_then(|scope| {
-            if scope.contains_key(&id) {
-                Err(Error::Okay)
-            } else {
-                Ok({ scope.insert(id, index);  })
-            }
-        })
+        self.scopes.last_mut().ok_or(Error::InternalCompilerErr)
+            .and_then(|scope| {
+                if scope.contains_key(&id) {
+                    Err(Error::VariableRenamed)
+                } else {
+                    Ok({ scope.insert(id, index);  })
+                }
+            })
     }
 
     fn lookup(&self, id: Ident) -> Result<usize> {
@@ -182,7 +183,7 @@ impl Assembler {
             }
         }
 
-        Err(Error::Okay)
+        Err(Error::VariableUndefined)
     }
 
     pub fn load(&mut self, id: Ident) -> Result<()> {

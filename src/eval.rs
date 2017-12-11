@@ -183,13 +183,14 @@ impl World {
 
     fn read<V: Extract>(&self, index: usize) -> Result<V> {
         Extract::extract({
-            self.frame.locals.get(index).cloned().ok_or(Error::Okay)?
+            self.frame.locals.get(index).cloned()
+                .ok_or(Error::IndexOutOfBounds)?
         })
     }
 
     fn write<V: Into<Value>>(&mut self, item: V, index: usize) -> Result<()> {
         if index >= self.frame.locals.len() {
-            Err(Error::Okay)
+            Err(Error::IndexOutOfBounds)
         } else {
             Ok({ self.frame.locals[index] = item.into() })
         }
@@ -197,7 +198,7 @@ impl World {
 
     fn capture<O: FromIterator<Value>>(&mut self, len: usize) -> Result<O> {
         let start = self.frame.locals.len().checked_sub(len)
-            .ok_or(Error::Okay)?;
+            .ok_or(Error::IndexOutOfBounds)?;
         Ok(self.frame.locals.drain(start ..).collect())
     }
 

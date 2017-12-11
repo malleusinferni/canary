@@ -108,7 +108,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                     }
                 }
 
-                return Some(Err(Error::Okay));
+                return Some(Err(Error::MalformedString));
             },
 
             w if w.is_alphabetic() => {

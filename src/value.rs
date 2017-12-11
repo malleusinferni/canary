@@ -76,18 +76,18 @@ impl Value {
                 let rhs = Int::extract(rhs)?;
 
                 if rhs < 0 {
-                    return Err(Error::Okay);
+                    return Err(Error::NegativeIndex);
                 }
 
                 let rhs = rhs as usize;
 
-                lhs.get(rhs).cloned().ok_or(Error::Okay)
+                lhs.get(rhs).cloned().ok_or(Error::IndexOutOfBounds)
             },
 
             Value::Record(lhs) => {
                 let lhs = lhs.borrow();
                 let rhs = Ident::extract(rhs)?;
-                lhs.get(&rhs).cloned().ok_or(Error::Okay)
+                lhs.get(&rhs).cloned().ok_or(Error::IndexOutOfBounds)
             },
 
             other => Err(Error::TypeMismatch {
@@ -103,12 +103,12 @@ impl Value {
                 let mut lhs = lhs.borrow_mut();
                 let key = Int::extract(key)?;
                 if key < 0 {
-                    return Err(Error::Okay);
+                    return Err(Error::NegativeIndex);
                 }
                 let rhs = key as usize;
 
                 if rhs > lhs.len() {
-                    return Err(Error::Okay);
+                    return Err(Error::IndexOutOfBounds);
                 }
 
                 lhs[rhs] = val;
@@ -172,7 +172,7 @@ impl Add for Value {
                 Ok(Str::from(format!("{}{}", lhs, rhs)).into())
             },
 
-            _ => Err(Error::Okay),
+            _ => Err(Error::IllegalAdd),
         }
     }
 }
@@ -238,7 +238,7 @@ impl Mul for Value {
             },
 
             _ => {
-                Err(Error::Okay)
+                Err(Error::IllegalMultiply)
             },
         }
     }
