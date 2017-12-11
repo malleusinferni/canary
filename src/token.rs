@@ -24,8 +24,6 @@ pub enum Token {
     DIV,
     MUL,
     EOL,
-    BEGIN,
-    END,
 }
 
 use std::str::Chars;
@@ -45,18 +43,12 @@ impl<T: Iterator<Item=Result<Token>>> Iterator for Spanned<T> {
 
 pub struct Tokenizer<'a> {
     input: Peekable<Chars<'a>>,
-    buf: Vec<Token>,
-    bol: bool,
-    indents: Vec<usize>,
 }
 
 impl<'a> Tokenizer<'a> {
     pub fn new(src: &'a str) -> Self {
         Tokenizer {
             input: src.chars().peekable(),
-            buf: vec![],
-            bol: true,
-            indents: vec![],
         }
     }
 
@@ -69,83 +61,20 @@ impl<'a> Iterator for Tokenizer<'a> {
     type Item = Result<Token>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.input.peek().is_none() {
-            while let Some(_) = self.indents.pop() {
-                self.buf.push(Token::END);
-            }
-        }
-
-        if let Some(token) = self.buf.pop() {
-            return Some(Ok(token));
-        }
-
         while let Some(&s) = self.input.peek() {
             if s == '#' {
                 while let Some(n) = self.input.next() {
                     if n == '\n' {
-                        self.bol = true;
                         return Some(Ok(Token::EOL));
                     }
                 }
-            } else if s == '\n' {
-                self.bol = true;
-                self.input.next();
-                return Some(Ok(Token::EOL));
             } else if s.is_whitespace() {
                 let _ = self.input.next();
-                if !self.bol { continue; }
-
-                // Handle indentation
-                self.bol = false;
-                let mut width = if s == '\t' { 8 } else { 1 };
-
-                while let Some(&n) = self.input.peek() {
-                    match n {
-                        '\t' => width += 8,
-                        ' ' => width += 1,
-                        _ => break,
-                    }
-
-                    let _ = self.input.next();
-                }
-
-                loop {
-                    let &prev = self.indents.last().unwrap_or(&0);
-
-                    if prev == width {
-                        break;
-                    }
-
-                    if prev > width {
-                        self.indents.pop();
-                        self.buf.push(Token::END);
-                    } else if prev < width {
-                        self.indents.push(width);
-                        return Some(Ok(Token::BEGIN));
-                    }
-                }
-
-                if let Some(token) = self.buf.pop() {
-                    return Some(Ok(token));
-                }
+                continue;
             } else {
                 break;
             }
         }
-
-        if let Some(&s) = self.input.peek() {
-            if self.bol && !s.is_whitespace() {
-                while let Some(_) = self.indents.pop() {
-                    if self.indents.is_empty() {
-                        return Some(Ok(Token::END));
-                    } else {
-                        self.buf.push(Token::END);
-                    }
-                }
-            }
-        }
-
-        self.bol = false;
 
         let first = self.input.next()?;
 
@@ -190,8 +119,8 @@ impl<'a> Iterator for Tokenizer<'a> {
                 }
 
                 match word.as_ref() {
-                    "def" => Token::DEF,
-                    "let" => Token::LET,
+                    "sub" => Token::DEF,
+                    "my" => Token::LET,
                     "return" => Token::RETURN,
                     _ => Token::ID(Ident::new(word).unwrap()),
                 }
@@ -225,8 +154,8 @@ use std::fmt;
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Token::DEF => write!(f, "def"),
-            Token::LET => write!(f, "let"),
+            Token::DEF => write!(f, "sub"),
+            Token::LET => write!(f, "my"),
             Token::RETURN => write!(f, "return"),
             Token::EOL => write!(f, ";"),
             Token::COMMA => write!(f, ","),
@@ -245,15 +174,13 @@ impl fmt::Display for Token {
             Token::RSQB => write!(f, "]"),
             Token::LCBR => write!(f, "{{"),
             Token::RCBR => write!(f, "}}"),
-            Token::BEGIN => write!(f, "BEGIN"),
-            Token::END => write!(f, "END"),
         }
     }
 }
 
 #[test]
 fn syntax() {
-    let src = "def foo(): return bar";
+    let src = "sub foo() { return bar; }";
     let t = Tokenizer::new(src);
     let items = t.collect::<Result<Vec<_>, _>>().unwrap();
     assert_eq!(&items, &[
@@ -261,9 +188,11 @@ fn syntax() {
                Token::ID(Ident::new("foo").unwrap()),
                Token::LPAR,
                Token::RPAR,
-               Token::COLON,
+               Token::LCBR,
                Token::RETURN,
                Token::ID(Ident::new("bar").unwrap()),
+               Token::EOL,
+               Token::RCBR,
     ]);
 }
 

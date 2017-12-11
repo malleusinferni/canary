@@ -5,13 +5,11 @@ use super::Error;
 grammar;
 
 pub module: Vec<Def> = {
-    <items:(<def?> ";")*> => {
-        items.into_iter().filter_map(|a| a).collect()
-    },
+    <items:def*> => items,
 };
 
 pub def: Def = {
-    "def" <name:ident> "(" <args:comma<ident>?> ")" ":" ";" "BEGIN" <body:statements> "END" => {
+    "sub" <name:ident> "(" <args:comma<ident>?> ")" "{" <body:statements> "}" => {
         let args = Args(args.unwrap_or_else(|| vec![]));
         Def { name, args, body }
     },
@@ -24,7 +22,7 @@ pub statements: Vec<Stmt> = {
 };
 
 stmt: Stmt = {
-    "let" <names:comma<ident>> => {
+    "my" <names:comma<ident>> => {
         Stmt::Let { names }
     },
 
@@ -100,12 +98,14 @@ extern {
     type Error = Error;
 
     enum Token {
-        "def" => Token::DEF,
-        "let" => Token::LET,
+        "sub" => Token::DEF,
+        "my" => Token::LET,
         "(" => Token::LPAR,
         ")" => Token::RPAR,
         "[" => Token::LSQB,
         "]" => Token::RSQB,
+        "{" => Token::LCBR,
+        "}" => Token::RCBR,
         ":" => Token::COLON,
         "=" => Token::EQUAL,
         ";" => Token::EOL,
@@ -114,8 +114,6 @@ extern {
         "-" => Token::SUB,
         "/" => Token::DIV,
         "*" => Token::MUL,
-        "BEGIN" => Token::BEGIN,
-        "END" => Token::END,
         int => Token::INT(<Int>),
         ident => Token::ID(<Ident>),
         string => Token::STR(<Str>),

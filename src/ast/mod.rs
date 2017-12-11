@@ -211,7 +211,7 @@ fn syntax() {
     use ast::grammar::parse_def;
     use token::Tokenizer;
 
-    let src = "def foo():\n\tx = y\n";
+    let src = "sub foo() { x = y; }";
     let tokens = Tokenizer::new(src).collect::<Result<Vec<_>, _>>().unwrap();
     println!("Tokens: {:?}", tokens);
 
