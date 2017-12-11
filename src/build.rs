@@ -79,6 +79,12 @@ impl Program {
             Str::from(map_to_string(args).concat())
         }))?;
 
+        std.def_native("len", Exactly(1), |mut args| Ok({
+            let arg = List::extract(args.pop().unwrap())?;
+            let arg = arg.borrow();
+            arg.len() as Int
+        }))?;
+
         std.def_native("assert", Exactly(1), |args| Ok({
             let arg = args.into_iter().next().unwrap();
             assert!(Int::extract(arg)? != 0);
