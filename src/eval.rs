@@ -64,6 +64,10 @@ impl World {
                 let _: Value = self.pop()?;
             },
 
+            Op::NIL => {
+                self.push(());
+            },
+
             Op::LOAD { src } => {
                 let val: Value = self.read(src)?;
                 self.push(val);

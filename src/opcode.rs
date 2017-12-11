@@ -36,6 +36,7 @@ pub enum Op {
     RET,
     DROP,
     NOT,
+    NIL,
     CALL { name: Ident, argc: usize, },
     BINOP { op: Binop, },
     LOAD { src: usize, },
@@ -190,6 +191,10 @@ impl Assembler {
 
     pub fn push_id(&mut self, name: Ident) {
         self.program.code.push(Op::PUSHN { name })
+    }
+
+    pub fn push_nil(&mut self) {
+        self.program.code.push(Op::NIL);
     }
 
     pub fn discard(&mut self) {

@@ -17,8 +17,9 @@ pub struct Def {
 
 #[derive(Clone, Debug)]
 pub enum Stmt {
-    Let {
-        names: Vec<Ident>,
+    My {
+        lhs: Ident,
+        rhs: Option<Expr>,
     },
 
     Assign {
@@ -32,7 +33,7 @@ pub enum Stmt {
     },
 
     Return {
-        rhs: Expr,
+        rhs: Option<Expr>,
     },
 
     Nop,
@@ -69,15 +70,15 @@ pub enum Literal {
     List(Vec<Expr>),
     Record(Vec<(Ident, Expr)>),
     Ident(Ident),
+    Nil,
 }
 
 impl Assembler {
     fn tr_stmt(&mut self, stmt: Stmt) -> Result<()> {
         match stmt {
-            Stmt::Let { names } => {
-                for name in names.into_iter() {
-                    self.local(name)?;
-                }
+            Stmt::My { lhs, rhs } => {
+                self.tr_expr(rhs.unwrap_or(Expr::Literal(Literal::Nil)))?;
+                self.local(lhs)?;
             },
 
             Stmt::Call { name, args } => {
@@ -97,7 +98,7 @@ impl Assembler {
             },
 
             Stmt::Return { rhs } => {
-                self.tr_expr(rhs)?;
+                self.tr_expr(rhs.unwrap_or(Expr::Literal(Literal::Nil)))?;
                 self.ret();
             },
 
@@ -113,6 +114,10 @@ impl Assembler {
         match expr {
             Expr::Name(id) => {
                 self.load(id)?;
+            },
+
+            Expr::Literal(Literal::Nil) => {
+                self.push_nil();
             },
 
             Expr::Literal(Literal::Int(int)) => {

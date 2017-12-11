@@ -22,8 +22,8 @@ pub statements: Vec<Stmt> = {
 };
 
 stmt: Stmt = {
-    "my" <names:comma<ident>> => {
-        Stmt::Let { names }
+    "my" <lhs:ident> <rhs:("=" <expr>)?> => {
+        Stmt::My { lhs, rhs }
     },
 
     <lhs:ident> "=" <rhs:expr> => {
@@ -33,6 +33,10 @@ stmt: Stmt = {
     <name:ident> "(" <args:comma<expr>?> ")" => {
         let args = args.unwrap_or_else(|| vec![]);
         Stmt::Call { name, args }
+    },
+
+    "return" <rhs:expr?> => {
+        Stmt::Return { rhs }
     },
 };
 
@@ -98,6 +102,7 @@ extern {
     type Error = Error;
 
     enum Token {
+        "return" => Token::RETURN,
         "sub" => Token::DEF,
         "my" => Token::LET,
         "(" => Token::LPAR,
