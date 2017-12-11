@@ -4,8 +4,8 @@ use super::Error;
 
 grammar;
 
-pub module: Vec<Def> = {
-    <items:def*> => items,
+pub module: Module = {
+    <defs:def*> => Module { defs },
 };
 
 pub def: Def = {

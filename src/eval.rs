@@ -15,6 +15,7 @@ pub struct World {
 }
 
 struct Frame {
+    code: InterpretedFn,
     locals: Vec<Value>,
     pc: usize,
 }
@@ -22,13 +23,15 @@ struct Frame {
 impl World {
     pub fn new(program: Program) -> Self {
         World {
+            frame: Frame {
+                code: program.begin.clone(),
+                locals: vec![],
+                pc: 0,
+            },
+
             program,
             strings: HashSet::new(),
             globals: Record::default(),
-            frame: Frame {
-                pc: 0,
-                locals: vec![],
-            },
             saved: vec![],
         }
     }
@@ -45,7 +48,7 @@ impl World {
     }
 
     pub fn step(&mut self) -> Result<()> {
-        let op = self.program.fetch(self.frame.pc)?;
+        let op = self.frame.code.fetch(self.frame.pc)?;
 
         self.frame.pc += 1;
 
@@ -131,14 +134,14 @@ impl World {
             },
 
             Op::JUMP { dst } => {
-                self.frame.pc = self.program.jump(dst)?;
+                self.frame.pc = dst;
             },
 
             Op::JNZ { dst } => {
                 let test = self.pop::<Int>()?;
 
                 if test != 0 {
-                    self.frame.pc = self.program.jump(dst)?;
+                    self.frame.pc = dst;
                 }
             },
 
@@ -158,10 +161,13 @@ impl World {
                 self.push(call(argv)?);
             },
 
-            Func::Label(pc) => {
+            Func::Interpreted(code) => {
                 use std::mem::swap;
 
-                self.saved.push(Frame { locals: argv, pc, });
+                let locals = argv;
+                let pc = 0;
+                self.saved.push(Frame { locals, pc, code });
+
                 swap(&mut self.frame, self.saved.last_mut().unwrap());
 
                 // Return value will be saved by the RET instruction

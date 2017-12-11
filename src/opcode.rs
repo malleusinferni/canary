@@ -1,4 +1,4 @@
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use super::*;
@@ -6,17 +6,20 @@ use ident::*;
 use value::*;
 
 pub struct Program {
-    pub code: Vec<Op<Ident>>,
-    pub labels: HashMap<Ident, usize>,
+    pub begin: InterpretedFn,
     pub functions: HashMap<Ident, (Argc, Func)>,
+    pub strings: HashSet<Str>,
 }
 
 pub type NativeFn = Arc<Fn(Vec<Value>) -> Result<Value>>;
 
+#[derive(Clone, Debug)]
+pub struct InterpretedFn(Arc<[Op]>);
+
 #[derive(Clone)]
 pub enum Func {
     Native(NativeFn),
-    Label(usize),
+    Interpreted(InterpretedFn),
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -56,14 +59,6 @@ pub enum Binop {
 }
 
 impl Program {
-    pub fn fetch(&self, pc: usize) -> Result<Op<Ident>> {
-        self.code.get(pc).cloned().ok_or(Error::IndexOutOfBounds)
-    }
-
-    pub fn jump(&self, label: Ident) -> Result<usize> {
-        self.labels.get(&label).cloned().ok_or(Error::NoSuchLabel)
-    }
-
     pub fn call(&self, name: Ident, argv: &[Value]) -> Result<Func> {
         let (wanted, func) = self.functions.get(&name).cloned()
             .ok_or(Error::NoSuchLabel)?;
@@ -81,6 +76,26 @@ impl Program {
                 found: argv.len(),
             }),
         }
+    }
+
+    pub fn intern<S: AsRef<str>>(&mut self, string: S) -> Str {
+        let string = string.as_ref();
+
+        if !self.strings.contains(string) {
+            self.strings.insert(Str::from(string));
+        }
+
+        self.strings.get(string).cloned().unwrap()
+    }
+}
+
+impl InterpretedFn {
+    pub fn from_vec(code: Vec<Op>) -> Self {
+        InterpretedFn(code.into())
+    }
+
+    pub fn fetch(&self, pc: usize) -> Result<Op> {
+        self.0.get(pc).cloned().ok_or(Error::IndexOutOfBounds)
     }
 }
 

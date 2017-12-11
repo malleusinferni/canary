@@ -1,12 +1,16 @@
 use super::*;
 use value::*;
-use opcode::*;
 
 mod grammar {
     include!(concat!(env!("OUT_DIR"), "/ast/grammar.rs"));
 }
 
 pub use self::grammar::{parse_def, parse_block_body, parse_module};
+
+#[derive(Clone, Debug)]
+pub struct Module {
+    pub defs: Vec<Def>,
+}
 
 #[derive(Clone, Debug)]
 pub struct Def {
@@ -92,16 +96,6 @@ pub enum Literal {
     Nil,
 }
 
-pub fn translate(ast: Vec<Def>) -> Result<Program> {
-    let mut asm = build::Assembler::new();
-
-    for def in ast.into_iter() {
-        asm.def(def)?;
-    }
-
-    Ok(asm.build()?)
-}
-
 #[test]
 fn translation() {
     let x = Ident::new("x").unwrap();
@@ -126,7 +120,11 @@ fn translation() {
         },
     };
 
-    translate(vec![src]).unwrap();
+    let module = Module {
+        defs: vec![src],
+    };
+
+    module.translate().unwrap();
 }
 
 #[test]

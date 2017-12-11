@@ -27,8 +27,8 @@ pub fn compile(path: &Path) -> Result<eval::World> {
     File::open(path)?.read_to_string(&mut source)?;
 
     let tokens = token::Tokenizer::new(&source).spanned();
-    let ast = ast::parse_module(tokens)?;
-    let program = ast::translate(ast)?;
+    let module = ast::parse_module(tokens)?;
+    let program = module.translate()?;
     Ok(eval::World::new(program))
 }
 

@@ -6,31 +6,158 @@ use ident::*;
 use value::*;
 use opcode::*;
 
-pub struct Assembler {
-    program: Program,
-    strings: HashSet<Str>,
+pub struct Assembler<'a> {
+    code: Vec<Op<Sym>>,
+    strings: &'a mut HashSet<Str>,
+    labels: HashMap<Sym, usize>,
     scopes: Vec<HashMap<Ident, usize>>,
     next_gensym: usize,
 }
 
-impl Assembler {
-    pub fn new() -> Self {
-        Assembler {
-            program: Program {
-                code: vec![],
-                labels: HashMap::new(),
-                functions: HashMap::new(),
-            },
+#[derive(Copy, Clone, Eq, Hash, PartialEq)]
+struct Sym(usize);
 
+impl Program {
+    pub fn def(&mut self, def: ast::Def) -> Result<()> {
+        use ast::Def;
+
+        let Def { name, args, body } = def;
+        let args = args.0;
+        let argc = Argc::Exactly(args.len());
+
+        let mut asm = Assembler::new(&mut self.strings, args);
+
+        for stmt in body.into_iter() {
+            asm.tr_stmt(stmt)?;
+        }
+
+        // Implicit return
+        // TODO: Allow any block to evaluate to an Expr
+        asm.tr_stmt(ast::Stmt::Return { rhs: None })?;
+
+        let func = Func::Interpreted(asm.build()?);
+
+        self.functions.insert(name.clone(), (argc, func));
+
+        Ok(())
+    }
+
+    pub fn def_native<F, V>(&mut self, name: &str, argc: Argc, body: F)
+        -> Result<()>
+        where F: 'static + Fn(Vec<Value>) -> Result<V>,
+              V: Into<Value>
+    {
+        let name = Ident::new(self.intern(name))?;
+        let body = Func::Native(Arc::new(move |args| {
+            let result = body(args)?;
+            Ok(result.into())
+        }));
+
+        self.functions.insert(name, (argc, body));
+
+        Ok(())
+    }
+
+    pub fn stdlib() -> Result<Self> {
+        use self::Argc::*;
+
+        let mut std = Program {
+            begin: InterpretedFn::from_vec(vec![]),
             strings: HashSet::new(),
-            scopes: vec![],
+            functions: HashMap::new(),
+        };
+
+        fn map_to_string(items: Vec<Value>) -> Vec<String> {
+            items.into_iter().map(|i| format!("{}", i)).collect()
+        }
+
+        std.def_native("print", AtLeast(1), |args| Ok({
+            println!("{}", map_to_string(args).join(" "));
+        }))?;
+
+        std.def_native("str", AtLeast(1), |args| Ok({
+            Str::from(map_to_string(args).concat())
+        }))?;
+
+        std.def_native("assert", Exactly(1), |args| Ok({
+            let arg = args.into_iter().next().unwrap();
+            assert!(Int::extract(arg)? != 0);
+        }))?;
+
+        std.def_native("assert_eq", Exactly(2), |mut args| Ok({
+            let rhs = args.pop().unwrap();
+            let lhs = args.pop().unwrap();
+            assert_eq!(lhs, rhs);
+        }))?;
+
+        Ok(std)
+    }
+}
+
+impl ast::Module {
+    pub fn translate(self) -> Result<Program> {
+        let mut module = Program::stdlib()?;
+
+        for def in self.defs.into_iter() {
+            module.def(def)?;
+        }
+
+        Ok(module)
+    }
+}
+
+impl<'a> Assembler<'a> {
+    fn new(strings: &'a mut HashSet<Str>, args: Vec<Ident>) -> Self {
+        let mut scope = HashMap::new();
+        for (i, arg) in args.into_iter().enumerate() {
+            scope.insert(arg, i);
+        }
+
+        Assembler {
+            strings,
+            code: vec![],
+            scopes: vec![scope],
+            labels: HashMap::new(),
             next_gensym: 0,
         }
     }
 
-    pub fn build(mut self) -> Result<Program> {
-        self.build_stdlib()?;
-        Ok(self.program)
+    fn build(self) -> Result<InterpretedFn> {
+        let Assembler { code, labels, .. } = self;
+
+        let resolve = |label| -> Result<usize> {
+            labels.get(&label).cloned().ok_or(Error::NoSuchLabel)
+        };
+
+        let code = code.into_iter().map(|op| Ok(match op {
+            Op::JUMP { dst } => {
+                let dst = resolve(dst)?;
+                Op::JUMP { dst }
+            },
+
+            Op::JNZ { dst } => {
+                let dst = resolve(dst)?;
+                Op::JNZ { dst }
+            },
+
+            Op::NIL => Op::NIL,
+            Op::RET => Op::RET,
+            Op::NOT => Op::NOT,
+            Op::DROP => Op::DROP,
+            Op::GLOBALS => Op::GLOBALS,
+            Op::INS => Op::INS,
+            Op::LOAD { src } => Op::LOAD { src },
+            Op::STORE { dst } => Op::STORE { dst },
+            Op::PUSHI { int } => Op::PUSHI { int },
+            Op::PUSHS { string } => Op::PUSHS { string },
+            Op::PUSHN { name } => Op::PUSHN { name },
+            Op::LIST { len } => Op::LIST { len },
+            Op::REC => Op::REC,
+            Op::CALL { name, argc } => Op::CALL { name, argc },
+            Op::BINOP { op } => Op::BINOP { op },
+        })).collect::<Result<Vec<Op>>>()?;
+
+        Ok(InterpretedFn::from_vec(code))
     }
 
     fn tr_stmt(&mut self, stmt: ast::Stmt) -> Result<()> {
@@ -170,7 +297,7 @@ impl Assembler {
         Ok(())
     }
 
-    pub fn push<S: Into<ast::Literal>>(&mut self, lit: S) -> Result<()> {
+    fn push<S: Into<ast::Literal>>(&mut self, lit: S) -> Result<()> {
         use ast::Literal;
 
         match lit.into() {
@@ -195,70 +322,28 @@ impl Assembler {
         Ok(())
     }
 
-    pub fn def(&mut self, def: ast::Def) -> Result<()> {
-        let ast::Def { name, args, body } = def;
-
-        let args = args.0;
-
-        if self.scopes.is_empty() {
-            let label = Func::Label(self.program.code.len());
-            let argc = Argc::Exactly(args.len());
-            self.program.functions.insert(name.clone(), (argc, label));
-
-            let mut scope = HashMap::new();
-            for (i, arg) in args.into_iter().enumerate() {
-                scope.insert(arg, i);
-            }
-            self.scopes.push(scope);
-
-            self.label(name)?;
-            for stmt in body.into_iter() {
-                self.tr_stmt(stmt)?;
-            }
-
-            // Implicit return
-            // TODO: Allow any block to evaluate to an Expr
-            self.tr_stmt(ast::Stmt::Return { rhs: None })?;
-
-            self.undef()?;
-
-            Ok(())
-        } else {
-            Err(Error::NonStaticFunction)
-        }
-    }
-
-    fn undef(&mut self) -> Result<()> {
-        if self.scopes.len() != 1 {
-            Err(Error::InternalCompilerErr)
-        } else {
-            self.scopes.clear();
-            Ok(())
-        }
-    }
-
-    pub fn label(&mut self, id: Ident) -> Result<()> {
-        if self.program.labels.contains_key(&id) {
+    fn label(&mut self, label: Sym) -> Result<()> {
+        if self.labels.contains_key(&label) {
             Err(Error::LabelRedefined)
         } else {
-            let len = self.program.code.len();
-            self.program.labels.insert(id, len);
+            let len = self.code.len();
+            self.labels.insert(label, len);
             Ok(())
         }
     }
 
-    fn emit(&mut self, op: Op<Ident>) {
-        self.program.code.push(op);
+    fn emit(&mut self, op: Op<Sym>) {
+        self.code.push(op);
     }
 
-    pub fn gensym(&mut self) -> Result<Ident> {
-        let id = Ident::new(format!("gensym_{}", self.next_gensym))?;
+    fn gensym(&mut self) -> Result<Sym> {
+        let sym = Sym(self.next_gensym);
         self.next_gensym = self.next_gensym.checked_add(1)
             .ok_or(Error::InternalCompilerErr)?;
-        Ok(id)
+        Ok(sym)
     }
 
-    pub fn local(&mut self, id: Ident) -> Result<()> {
+    fn local(&mut self, id: Ident) -> Result<()> {
         let index = self.scopes.iter().map(|scope| scope.len()).sum();
 
         self.scopes.last_mut().ok_or(Error::InternalCompilerErr)
@@ -281,25 +366,25 @@ impl Assembler {
         Err(Error::VariableUndefined)
     }
 
-    pub fn load(&mut self, id: Ident) -> Result<()> {
+    fn load(&mut self, id: Ident) -> Result<()> {
         let src = self.lookup(id)?;
         self.emit(Op::LOAD { src });
         Ok(())
     }
 
-    pub fn store(&mut self, id: Ident) -> Result<()> {
+    fn store(&mut self, id: Ident) -> Result<()> {
         let dst = self.lookup(id)?;
         self.emit(Op::STORE { dst });
         Ok(())
     }
 
-    pub fn call(&mut self, name: &str, argc: usize) -> Result<()> {
+    fn call(&mut self, name: &str, argc: usize) -> Result<()> {
         let name = Ident::new(self.intern(name))?;
         self.emit(Op::CALL { name, argc });
         Ok(())
     }
 
-    pub fn binop(&mut self, op: ast::Binop) {
+    fn binop(&mut self, op: ast::Binop) {
         let op = match op {
             ast::Binop::Add => Binop::ADD,
             ast::Binop::Sub => Binop::SUB,
@@ -317,66 +402,5 @@ impl Assembler {
         }
 
         self.strings.get(s).cloned().unwrap()
-    }
-
-    pub fn def_native<F, V>(&mut self, name: &str, argc: Argc, body: F)
-        -> Result<()>
-        where F: 'static + Fn(Vec<Value>) -> Result<V>,
-              V: Into<Value>
-    {
-        let name = Ident::new(self.intern(name))?;
-        let body = Func::Native(Arc::new(move |args| {
-            let result = body(args)?;
-            Ok(result.into())
-        }));
-
-        self.program.functions.insert(name, (argc, body));
-
-        Ok(())
-    }
-
-    fn build_stdlib(&mut self) -> Result<()> {
-        use self::Argc::*;
-
-        fn map_to_string(items: Vec<Value>) -> Vec<String> {
-            items.into_iter().map(|i| format!("{}", i)).collect()
-        }
-
-        self.def_native("print", AtLeast(1), |args| Ok({
-            println!("{}", map_to_string(args).join(" "));
-        }))?;
-
-        self.def_native("str", AtLeast(1), |args| Ok({
-            Str::from(map_to_string(args).concat())
-        }))?;
-
-        self.def_native("assert", Exactly(1), |args| Ok({
-            let arg = args.into_iter().next().unwrap();
-            assert!(Int::extract(arg)? != 0);
-        }))?;
-
-        self.def_native("assert_eq", Exactly(2), |mut args| Ok({
-            let rhs = args.pop().unwrap();
-            let lhs = args.pop().unwrap();
-            assert_eq!(lhs, rhs);
-        }))?;
-
-        Ok(())
-    }
-}
-
-#[test]
-fn hello() {
-    let mut asm = Assembler::new();
-
-    asm.push("Hello, ");
-    asm.push("world.");
-    asm.call("str", 2).unwrap();
-    asm.call("print", 1).unwrap();
-
-    let mut w = eval::World::new(asm.build().unwrap());
-
-    for _ in 0 .. 4 {
-        w.step().unwrap();
     }
 }
