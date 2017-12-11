@@ -10,6 +10,7 @@ pub mod token;
 pub mod ast;
 pub mod value;
 pub mod opcode;
+pub mod build;
 pub mod eval;
 
 use std::path::Path;

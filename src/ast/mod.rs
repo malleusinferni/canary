@@ -69,7 +69,7 @@ pub enum Expr {
 }
 
 #[derive(Clone, Debug)]
-pub struct Args(Vec<Ident>);
+pub struct Args(pub Vec<Ident>);
 
 #[derive(Copy, Clone, Debug)]
 pub enum Binop {
@@ -90,167 +90,11 @@ pub enum Literal {
     Nil,
 }
 
-impl Assembler {
-    fn tr_stmt(&mut self, stmt: Stmt) -> Result<()> {
-        match stmt {
-            Stmt::My { lhs, rhs } => {
-                self.tr_expr(rhs.unwrap_or(Expr::Literal(Literal::Nil)))?;
-                self.local(lhs)?;
-            },
-
-            Stmt::Assign { lhs, rhs } => {
-                self.tr_expr(rhs)?;
-                self.store(lhs)?;
-            },
-
-            Stmt::Return { rhs } => {
-                self.tr_expr(rhs.unwrap_or(Expr::Literal(Literal::Nil)))?;
-                self.ret();
-            },
-
-            Stmt::If { clauses, last } => {
-                let after = self.gensym()?;
-
-                let mut bodies = vec![];
-                for (cond, body) in clauses.into_iter() {
-                    let label = self.gensym()?;
-                    self.tr_expr(cond)?;
-                    self.jump_nonzero(label.clone());
-                    bodies.push((label, body));
-                }
-
-                for stmt in last.into_iter() {
-                    self.tr_stmt(stmt)?;
-                }
-
-                self.jump(after.clone());
-
-                for (label, body) in bodies.into_iter() {
-                    self.label(label)?;
-
-                    for stmt in body.into_iter() {
-                        self.tr_stmt(stmt)?;
-                    }
-
-                    self.jump(after.clone());
-                }
-
-                self.label(after)?;
-            },
-
-            Stmt::While { test, body } => {
-                let before = self.gensym()?;
-                let after = self.gensym()?;
-
-                self.tr_expr(Expr::Not(test.clone().into()))?;
-                self.jump_nonzero(after.clone());
-
-                self.label(before.clone())?;
-                for stmt in body.into_iter() {
-                    self.tr_stmt(stmt)?;
-                }
-
-                self.tr_expr(test)?;
-                self.jump_nonzero(before);
-
-                self.label(after)?;
-            },
-
-            Stmt::Bare { rhs } => {
-                self.tr_expr(rhs)?;
-                self.discard();
-            },
-
-            Stmt::Nop => {
-                // Do nothing
-            },
-        }
-
-        Ok(())
-    }
-
-    fn tr_expr(&mut self, expr: Expr) -> Result<()> {
-        match expr {
-            Expr::Name(id) => {
-                self.load(id)?;
-            },
-
-            Expr::Literal(Literal::Nil) => {
-                self.push_nil();
-            },
-
-            Expr::Literal(Literal::Int(int)) => {
-                self.push_int(int);
-            },
-
-            Expr::Literal(Literal::Str(string)) => {
-                self.push_str(&string);
-            },
-
-            Expr::Literal(Literal::List(items)) => {
-                let len = items.len();
-
-                for item in items.into_iter() {
-                    self.tr_expr(item)?;
-                }
-
-                self.list(len);
-            },
-
-            Expr::Literal(Literal::Record(pairs)) => {
-                self.rec();
-
-                for (key, val) in pairs.into_iter() {
-                    self.push_id(key);
-                    self.tr_expr(val)?;
-                    self.insert();
-                }
-            },
-
-            Expr::Literal(Literal::Ident(id)) => {
-                self.push_id(id);
-            },
-
-            Expr::Binop { lhs, op, rhs } => {
-                self.tr_expr(*lhs)?;
-                self.tr_expr(*rhs)?;
-                self.binop(op);
-            },
-
-            Expr::Not(expr) => {
-                self.tr_expr(*expr)?;
-                self.not();
-            },
-
-            Expr::Call { name, args } => {
-                let argc = args.len();
-
-                for arg in args.into_iter() {
-                    self.tr_expr(arg)?;
-                }
-
-                self.call(name.as_ref(), argc)?;
-            },
-        }
-
-        Ok(())
-    }
-}
-
 pub fn translate(ast: Vec<Def>) -> Result<Program> {
-    let mut asm = Assembler::new();
+    let mut asm = build::Assembler::new();
 
-    for Def { name, args, body } in ast.into_iter() {
-        asm.def(name.clone(), args.0)?;
-        asm.label(name)?;
-
-        for stmt in body.into_iter() {
-            asm.tr_stmt(stmt)?;
-        }
-
-        // Implicit return nil at end of function
-        asm.tr_stmt(Stmt::Return { rhs: None })?;
-        asm.undef()?;
+    for def in ast.into_iter() {
+        asm.def(def)?;
     }
 
     Ok(asm.build()?)

@@ -222,21 +222,3 @@ impl fmt::Display for Argc {
         }
     }
 }
-
-#[test]
-fn hello() {
-    use opcode::Assembler;
-
-    let mut asm = Assembler::new();
-
-    asm.push_str("Hello, ");
-    asm.push_str("world.");
-    asm.call("str", 2).unwrap();
-    asm.call("print", 1).unwrap();
-
-    let mut w = World::new(asm.build().unwrap());
-
-    for _ in 0 .. 4 {
-        w.step().unwrap();
-    }
-}
