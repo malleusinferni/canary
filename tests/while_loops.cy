@@ -3,10 +3,10 @@ sub main() {
 
     while $x {
         $x = $x - 1;
-        hello("world");
+        hello "world";
     }
 }
 
 sub hello($name) {
-    print("Hello, ", $name);
+    print "Hello, ", $name;
 }

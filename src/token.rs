@@ -4,7 +4,8 @@ use value::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
-    WORD(Ident),
+    NEARWORD(Ident),
+    FARWORD(Ident),
     VAR(Ident),
     INT(Int),
     STR(Str),
@@ -150,7 +151,14 @@ impl<'a> Iterator for Tokenizer<'a> {
                     "else" => Token::ELSE,
                     "while" => Token::WHILE,
                     "return" => Token::RETURN,
-                    _ => Token::WORD(self.strings.intern(word).unwrap()),
+                    _ => {
+                        let ident = self.strings.intern(word).unwrap();
+                        if self.input.peek() == Some(&'(') {
+                            Token::NEARWORD(ident)
+                        } else {
+                            Token::FARWORD(ident)
+                        }
+                    },
                 }
             },
 
@@ -196,7 +204,8 @@ impl fmt::Display for Token {
             Token::SUB => write!(f, "-"),
             Token::DIV => write!(f, "/"),
             Token::MUL => write!(f, "*"),
-            Token::WORD(ref id) => write!(f, "{}", id),
+            Token::NEARWORD(ref id) => write!(f, "{}", id),
+            Token::FARWORD(ref id) => write!(f, "{}", id),
             Token::VAR(ref id) => write!(f, "${}", id),
             Token::STR(ref s) => write!(f, "{:?}", s),
             Token::INT(i) => write!(f, "{}", i),
@@ -220,7 +229,7 @@ fn syntax() {
     let items = t.collect::<Result<Vec<_>, _>>().unwrap();
     assert_eq!(&items, &[
                Token::DEF,
-               Token::WORD(foo),
+               Token::NEARWORD(foo),
                Token::LPAR,
                Token::RPAR,
                Token::LCBR,

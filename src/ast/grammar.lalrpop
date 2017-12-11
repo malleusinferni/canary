@@ -9,7 +9,7 @@ pub module: Module = {
 };
 
 pub def: Def = {
-    "sub" <name:word> "(" <args:comma<var>?> ")" <body:block> => {
+    "sub" <name:near_word> "(" <args:comma<var>?> ")" <body:block> => {
         let args = Args(args.unwrap_or_else(|| vec![]));
         Def { name, args, body }
     },
@@ -43,6 +43,12 @@ simple_stmt: Stmt = {
     },
 
     <rhs:expr> => {
+        Stmt::Bare { rhs }
+    },
+
+    <name:far_word> <args:comma<expr>?> => {
+        let args = args.unwrap_or(vec![]);
+        let rhs = Expr::Call { name, args };
         Stmt::Bare { rhs }
     },
 };
@@ -119,7 +125,7 @@ factor: Expr = {
 
     <var> => Expr::Name(<>),
 
-    <name:word> "(" <args:comma<expr>?> ")" => {
+    <name:near_word> "(" <args:comma<expr>?> ")" => {
         let args = args.unwrap_or_else(|| vec![]);
         Expr::Call { name, args }
     },
@@ -164,7 +170,8 @@ extern {
         "/" => Token::DIV,
         "*" => Token::MUL,
         int => Token::INT(<Int>),
-        word => Token::WORD(<Ident>),
+        near_word => Token::NEARWORD(<Ident>),
+        far_word => Token::FARWORD(<Ident>),
         var => Token::VAR(<Ident>),
         string => Token::STR(<Str>),
     }
