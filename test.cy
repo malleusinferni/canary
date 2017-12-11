@@ -1,4 +1,10 @@
 sub main() {
-    print("Hello, world");
-    return 0;
+    hello("everybody");
+    hello("world");
+    return;
+}
+
+sub hello(name) {
+    print("Hello, " + name);
+    return;
 }
