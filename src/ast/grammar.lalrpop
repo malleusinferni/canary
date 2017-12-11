@@ -58,6 +58,10 @@ block_stmt: Stmt = {
         let last = last.unwrap_or(vec![]);
         Stmt::If { clauses, last }
     },
+
+    "while" <test:expr> <body:block> => {
+        Stmt::While { test, body }
+    },
 };
 
 expr: Expr = {
@@ -144,6 +148,7 @@ extern {
         "my" => Token::LET,
         "if" => Token::IF,
         "else" => Token::ELSE,
+        "while" => Token::WHILE,
         "(" => Token::LPAR,
         ")" => Token::RPAR,
         "[" => Token::LSQB,

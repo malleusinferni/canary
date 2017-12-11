@@ -241,6 +241,10 @@ impl Assembler {
         self.program.code.push(Op::BINOP { op });
     }
 
+    pub fn not(&mut self) {
+        self.program.code.push(Op::NOT);
+    }
+
     pub fn list(&mut self, len: usize) {
         self.program.code.push(Op::LIST { len });
     }

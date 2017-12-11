@@ -17,6 +17,7 @@ pub enum Token {
     LET,
     IF,
     ELSE,
+    WHILE,
     COLON,
     RETURN,
     EQUAL,
@@ -125,6 +126,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                     "my" => Token::LET,
                     "if" => Token::IF,
                     "else" => Token::ELSE,
+                    "while" => Token::WHILE,
                     "return" => Token::RETURN,
                     _ => Token::ID(Ident::new(word).unwrap()),
                 }
@@ -162,6 +164,7 @@ impl fmt::Display for Token {
             Token::LET => write!(f, "my"),
             Token::IF => write!(f, "if"),
             Token::ELSE => write!(f, "else"),
+            Token::WHILE => write!(f, "while"),
             Token::RETURN => write!(f, "return"),
             Token::EOL => write!(f, ";"),
             Token::COMMA => write!(f, ","),

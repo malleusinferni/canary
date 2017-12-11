@@ -1,12 +1,8 @@
 sub main() {
-    my x = 1;
-
-    x = x - 1;
-
-    if x {
-        hello(x);
-    } else {
+    my x = 4;
+    while x {
         hello("world");
+        x = x - 1;
     }
 }
 
