@@ -97,6 +97,14 @@ term: Expr = {
         }
     },
 
+    <lhs:factor> "[" <rhs:expr> "]" => {
+        Expr::Binop {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op: Binop::Idx,
+        }
+    },
+
     <factor> => <>,
 };
 

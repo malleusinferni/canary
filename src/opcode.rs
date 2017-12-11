@@ -228,20 +228,16 @@ impl Assembler {
         Ok(())
     }
 
-    pub fn add(&mut self) {
-        self.program.code.push(Op::BINOP { op: Binop::ADD });
-    }
+    pub fn binop(&mut self, op: ast::Binop) {
+        let op = match op {
+            ast::Binop::Add => Binop::ADD,
+            ast::Binop::Sub => Binop::SUB,
+            ast::Binop::Div => Binop::DIV,
+            ast::Binop::Mul => Binop::MUL,
+            ast::Binop::Idx => Binop::IDX,
+        };
 
-    pub fn sub(&mut self) {
-        self.program.code.push(Op::BINOP { op: Binop::SUB });
-    }
-
-    pub fn div(&mut self) {
-        self.program.code.push(Op::BINOP { op: Binop::DIV });
-    }
-
-    pub fn mul(&mut self) {
-        self.program.code.push(Op::BINOP { op: Binop::MUL });
+        self.program.code.push(Op::BINOP { op });
     }
 
     pub fn list(&mut self, len: usize) {

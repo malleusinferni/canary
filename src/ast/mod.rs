@@ -70,6 +70,7 @@ pub enum Binop {
     Sub,
     Div,
     Mul,
+    Idx,
 }
 
 #[derive(Clone, Debug)]
@@ -188,13 +189,7 @@ impl Assembler {
             Expr::Binop { lhs, op, rhs } => {
                 self.tr_expr(*lhs)?;
                 self.tr_expr(*rhs)?;
-
-                match op {
-                    Binop::Add => self.add(),
-                    Binop::Sub => self.sub(),
-                    Binop::Div => self.div(),
-                    Binop::Mul => self.mul(),
-                }
+                self.binop(op);
             },
 
             Expr::Call { name, args } => {
@@ -266,7 +261,7 @@ fn syntax() {
     let src = &[
         "sub assign() { x = y; }",
         "sub simple_if() { if 0 { } }",
-        "sub if_else() { if 1 {  } else if 2 {  } else {  } }",
+        "sub if_else() { if 1 { 1 } else if 2 { 2 } else { 3 } }",
     ];
 
     for src in src {
