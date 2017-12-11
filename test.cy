@@ -1,6 +1,10 @@
 sub main() {
-    if 0 {
-        hello("everybody");
+    my x = 1;
+
+    x = x - 1;
+
+    if x {
+        hello(x);
     } else {
         hello("world");
     }
