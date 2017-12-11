@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::*;
 use ident::*;
@@ -357,7 +357,7 @@ impl Assembler {
               V: Into<Value>
     {
         let name = Ident::new(self.intern(name))?;
-        let body = Func::Native(Rc::new(move |args| {
+        let body = Func::Native(Arc::new(move |args| {
             let result = body(args)?;
             Ok(result.into())
         }));

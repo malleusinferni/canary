@@ -1,5 +1,5 @@
 use std::collections::{HashMap};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::*;
 use ident::*;
@@ -11,7 +11,7 @@ pub struct Program {
     pub functions: HashMap<Ident, (Argc, Func)>,
 }
 
-pub type NativeFn = Rc<Fn(Vec<Value>) -> Result<Value>>;
+pub type NativeFn = Arc<Fn(Vec<Value>) -> Result<Value>>;
 
 #[derive(Clone)]
 pub enum Func {
