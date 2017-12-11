@@ -198,7 +198,7 @@ fn translation() {
         name: hello.clone(),
         args: Args(vec![]),
         body: vec!{
-            Stmt::Let { names: vec![x.clone()], },
+            Stmt::My { lhs: x.clone(), rhs: None, },
             Stmt::Assign {
                 lhs: x.clone(),
                 rhs: Expr::Literal(Literal::Str("world".into())),
