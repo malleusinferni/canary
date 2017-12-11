@@ -59,6 +59,10 @@ pub enum Expr {
 
     Literal(Literal),
 
+    List(Vec<Expr>),
+
+    Record(Vec<(Ident, Expr)>),
+
     Binop {
         lhs: Box<Expr>,
         op: Binop,
@@ -84,8 +88,6 @@ pub enum Binop {
 pub enum Literal {
     Int(Int),
     Str(Str),
-    List(Vec<Expr>),
-    Record(Vec<(Ident, Expr)>),
     Ident(Ident),
     Nil,
 }

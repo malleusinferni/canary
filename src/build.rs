@@ -114,27 +114,18 @@ impl Assembler {
     }
 
     fn tr_expr(&mut self, expr: ast::Expr) -> Result<()> {
-        use ast::{Expr, Literal};
+        use ast::Expr;
 
         match expr {
             Expr::Name(id) => {
                 self.load(id)?;
             },
 
-            Expr::Literal(Literal::Nil) => {
-                self.emit(Op::NIL);
+            Expr::Literal(lit) => {
+                self.push(lit)?;
             },
 
-            Expr::Literal(Literal::Int(int)) => {
-                self.emit(Op::PUSHI { int });
-            },
-
-            Expr::Literal(Literal::Str(string)) => {
-                let string = self.intern(&string);
-                self.emit(Op::PUSHS { string });
-            },
-
-            Expr::Literal(Literal::List(items)) => {
+            Expr::List(items) => {
                 let len = items.len();
 
                 for item in items.into_iter() {
@@ -144,7 +135,7 @@ impl Assembler {
                 self.emit(Op::LIST { len });
             },
 
-            Expr::Literal(Literal::Record(pairs)) => {
+            Expr::Record(pairs) => {
                 self.emit(Op::REC);
 
                 for (key, val) in pairs.into_iter() {
@@ -152,10 +143,6 @@ impl Assembler {
                     self.tr_expr(val)?;
                     self.emit(Op::INS);
                 }
-            },
-
-            Expr::Literal(Literal::Ident(id)) => {
-                self.emit(Op::PUSHN { name: id });
             },
 
             Expr::Binop { lhs, op, rhs } => {
@@ -177,6 +164,31 @@ impl Assembler {
                 }
 
                 self.call(name.as_ref(), argc)?;
+            },
+        }
+
+        Ok(())
+    }
+
+    pub fn push<S: Into<ast::Literal>>(&mut self, lit: S) -> Result<()> {
+        use ast::Literal;
+
+        match lit.into() {
+            Literal::Int(int) => {
+                self.emit(Op::PUSHI { int });
+            },
+
+            Literal::Str(string) => {
+                let string = self.intern(&string);
+                self.emit(Op::PUSHS { string });
+            },
+
+            Literal::Ident(id) => {
+                self.emit(Op::PUSHN { name: id });
+            },
+
+            Literal::Nil => {
+                self.emit(Op::NIL);
             },
         }
 
@@ -357,10 +369,8 @@ impl Assembler {
 fn hello() {
     let mut asm = Assembler::new();
 
-    let string = asm.intern("Hello, ");
-    asm.emit(Op::PUSHS { string });
-    let string = asm.intern("world.");
-    asm.emit(Op::PUSHS { string });
+    asm.push("Hello, ");
+    asm.push("world.");
     asm.call("str", 2).unwrap();
     asm.call("print", 1).unwrap();
 

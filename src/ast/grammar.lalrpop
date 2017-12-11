@@ -124,7 +124,7 @@ factor: Expr = {
         Expr::Call { name, args }
     },
 
-    "[" <comma<expr>> "]" => Expr::Literal(Literal::List(<>)),
+    "[" <comma<expr>> "]" => Expr::List(<>),
 
     "(" <expr> ")" => <>,
 };
