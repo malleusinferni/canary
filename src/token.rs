@@ -15,6 +15,8 @@ pub enum Token {
     RCBR,
     DEF,
     LET,
+    IF,
+    ELSE,
     COLON,
     RETURN,
     EQUAL,
@@ -121,6 +123,8 @@ impl<'a> Iterator for Tokenizer<'a> {
                 match word.as_ref() {
                     "sub" => Token::DEF,
                     "my" => Token::LET,
+                    "if" => Token::IF,
+                    "else" => Token::ELSE,
                     "return" => Token::RETURN,
                     _ => Token::ID(Ident::new(word).unwrap()),
                 }
@@ -156,6 +160,8 @@ impl fmt::Display for Token {
         match *self {
             Token::DEF => write!(f, "sub"),
             Token::LET => write!(f, "my"),
+            Token::IF => write!(f, "if"),
+            Token::ELSE => write!(f, "else"),
             Token::RETURN => write!(f, "return"),
             Token::EOL => write!(f, ";"),
             Token::COMMA => write!(f, ","),

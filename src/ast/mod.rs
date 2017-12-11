@@ -6,7 +6,7 @@ mod grammar {
     include!(concat!(env!("OUT_DIR"), "/ast/grammar.rs"));
 }
 
-pub use self::grammar::{parse_def, parse_statements, parse_module};
+pub use self::grammar::{parse_def, parse_block, parse_module};
 
 #[derive(Clone, Debug)]
 pub struct Def {
@@ -34,6 +34,11 @@ pub enum Stmt {
 
     Return {
         rhs: Option<Expr>,
+    },
+
+    If {
+        clauses: Vec<(Expr, Vec<Stmt>)>,
+        last: Vec<Stmt>,
     },
 
     Nop,
@@ -100,6 +105,36 @@ impl Assembler {
             Stmt::Return { rhs } => {
                 self.tr_expr(rhs.unwrap_or(Expr::Literal(Literal::Nil)))?;
                 self.ret();
+            },
+
+            Stmt::If { clauses, last } => {
+                let after = self.gensym()?;
+
+                let mut bodies = vec![];
+                for (cond, body) in clauses.into_iter() {
+                    let label = self.gensym()?;
+                    self.tr_expr(cond)?;
+                    self.jump_nonzero(label.clone());
+                    bodies.push((label, body));
+                }
+
+                for stmt in last.into_iter() {
+                    self.tr_stmt(stmt)?;
+                }
+
+                self.jump(after.clone());
+
+                for (label, body) in bodies.into_iter() {
+                    self.label(label)?;
+
+                    for stmt in body.into_iter() {
+                        self.tr_stmt(stmt)?;
+                    }
+
+                    self.jump(after.clone());
+                }
+
+                self.label(after)?;
             },
 
             Stmt::Nop => {

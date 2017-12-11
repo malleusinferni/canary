@@ -1,6 +1,9 @@
 sub main() {
-    hello("everybody");
-    hello("world");
+    if 1 {
+        hello("everybody");
+    } else {
+        hello("world");
+    }
 }
 
 sub hello(name) {

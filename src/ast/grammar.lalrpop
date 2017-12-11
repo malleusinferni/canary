@@ -9,14 +9,14 @@ pub module: Vec<Def> = {
 };
 
 pub def: Def = {
-    "sub" <name:ident> "(" <args:comma<ident>?> ")" "{" <body:statements> "}" => {
+    "sub" <name:ident> "(" <args:comma<ident>?> ")" <body:block> => {
         let args = Args(args.unwrap_or_else(|| vec![]));
         Def { name, args, body }
     },
 };
 
-pub statements: Vec<Stmt> = {
-    <items:(<stmt?> ";")*> => {
+pub block: Vec<Stmt> = {
+    "{" <items:(<stmt?> ";")*> "}" => {
         items.into_iter().filter_map(|a| a).collect()
     },
 };
@@ -37,6 +37,17 @@ stmt: Stmt = {
 
     "return" <rhs:expr?> => {
         Stmt::Return { rhs }
+    },
+
+    "if" <first:(<expr> <block>)>
+        //<rest:("else" "if" <expr> <block>)*>
+        <last:("else" <block>)?>
+        =>
+    {
+        let clauses = vec![first];
+        //clauses.extend(rest.into_iter());
+        let last = last.unwrap_or(vec![]);
+        Stmt::If { clauses, last }
     },
 };
 
@@ -105,6 +116,8 @@ extern {
         "return" => Token::RETURN,
         "sub" => Token::DEF,
         "my" => Token::LET,
+        "if" => Token::IF,
+        "else" => Token::ELSE,
         "(" => Token::LPAR,
         ")" => Token::RPAR,
         "[" => Token::LSQB,

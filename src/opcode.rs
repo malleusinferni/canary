@@ -15,6 +15,7 @@ pub struct Assembler {
     program: Program,
     strings: HashSet<Str>,
     scopes: Vec<HashMap<Ident, usize>>,
+    next_gensym: usize,
 }
 
 pub type NativeFn = Rc<Fn(Vec<Value>) -> Result<Value>>;
@@ -101,6 +102,7 @@ impl Assembler {
 
             strings: HashSet::new(),
             scopes: vec![],
+            next_gensym: 0,
         }
     }
 
@@ -144,6 +146,21 @@ impl Assembler {
             self.program.labels.insert(id, len);
             Ok(())
         }
+    }
+
+    pub fn jump(&mut self, dst: Ident) {
+        self.program.code.push(Op::JUMP { dst });
+    }
+
+    pub fn jump_nonzero(&mut self, dst: Ident) {
+        self.program.code.push(Op::JNZ { dst });
+    }
+
+    pub fn gensym(&mut self) -> Result<Ident> {
+        let id = Ident::new(format!("gensym_{}", self.next_gensym))?;
+        self.next_gensym = self.next_gensym.checked_add(1)
+            .ok_or(Error::Okay)?;
+        Ok(id)
     }
 
     pub fn local(&mut self, id: Ident) -> Result<()> {
