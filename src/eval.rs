@@ -115,10 +115,10 @@ impl Interpreter {
             },
 
             Op::INS => {
-                let val = self.pop::<Value>()?;
-                let rhs = self.pop::<Value>()?;
                 let lhs = self.pop::<Value>()?;
-                lhs.insert(rhs, val)?;
+                let idx = self.pop::<Value>()?;
+                let rhs = self.pop::<Value>()?;
+                lhs.insert(idx, rhs)?;
             },
 
             Op::LIST { len } => {

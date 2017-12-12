@@ -34,7 +34,7 @@ simple_stmt: Stmt = {
         Stmt::My { lhs, rhs }
     },
 
-    <lhs:var> "=" <rhs:expr> => {
+    <lhs:expr> "=" <rhs:expr> => {
         Stmt::Assign { lhs, rhs }
     },
 

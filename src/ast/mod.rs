@@ -27,7 +27,7 @@ pub enum Stmt {
     },
 
     Assign {
-        lhs: Ident,
+        lhs: Expr,
         rhs: Expr,
     },
 
@@ -110,7 +110,7 @@ fn translation() {
         body: vec!{
             Stmt::My { lhs: x.clone(), rhs: None, },
             Stmt::Assign {
-                lhs: x.clone(),
+                lhs: Expr::Name(x.clone()),
                 rhs: Expr::Literal(Literal::Str(world)),
             },
             Stmt::Bare {

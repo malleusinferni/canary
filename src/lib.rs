@@ -59,6 +59,9 @@ pub enum Error {
     #[fail(display="token cannot start with {:?}", ch)]
     UnimplementedToken { ch: char, },
 
+    #[fail(display="illegal lvalue expression")]
+    IllegalLvalue,
+
     #[fail(display="illegal add")]
     IllegalAdd,
 

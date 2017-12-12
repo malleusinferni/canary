@@ -5,4 +5,7 @@ sub main() {
     assert_eq $a[1], 2;
     assert_eq $a[2], 3;
     assert_eq $a[3], 4;
+
+    $a[0] = 3;
+    assert_eq $a[0], 3;
 }

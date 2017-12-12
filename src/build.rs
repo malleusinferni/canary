@@ -112,6 +112,27 @@ impl ast::Module {
     }
 }
 
+enum Lvalue {
+    Store { lhs: Ident },
+    Insert { lhs: ast::Expr, idx: ast::Expr },
+}
+
+impl ast::Expr {
+    fn as_lvalue(self) -> Result<Lvalue> {
+        use ast::{Expr, Binop};
+
+        match self {
+            Expr::Name(lhs) => Ok(Lvalue::Store { lhs }),
+
+            Expr::Binop { lhs, rhs, op: Binop::Idx } => {
+                Ok(Lvalue::Insert { lhs: *lhs, idx: *rhs })
+            },
+
+            _ => Err(Error::IllegalLvalue),
+        }
+    }
+}
+
 impl<'a> Assembler<'a> {
     fn new(strings: &'a mut Strings, args: Vec<Ident>) -> Self {
         let mut scope = HashMap::new();
@@ -175,9 +196,18 @@ impl<'a> Assembler<'a> {
                 self.local(lhs)?;
             },
 
-            Stmt::Assign { lhs, rhs } => {
-                self.tr_expr(rhs)?;
-                self.store(lhs)?;
+            Stmt::Assign { lhs, rhs } => match lhs.as_lvalue()? {
+                Lvalue::Store { lhs } => {
+                    self.tr_expr(rhs)?;
+                    self.store(lhs)?;
+                },
+
+                Lvalue::Insert { lhs, idx } => {
+                    self.tr_expr(rhs)?;
+                    self.tr_expr(idx)?;
+                    self.tr_expr(lhs)?;
+                    self.emit(Op::INS);
+                },
             },
 
             Stmt::Return { rhs } => {
