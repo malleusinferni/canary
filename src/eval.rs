@@ -18,16 +18,16 @@ struct Frame {
     pc: usize,
 }
 
-impl Interpreter {
-    pub fn new(main: Module) -> Result<Self> {
+impl Module {
+    pub fn start(self) -> Result<Interpreter> {
         let mut this = Interpreter {
             frame: Frame {
-                code: main.begin.clone(),
+                code: self.begin.clone(),
                 locals: vec![],
                 pc: 0,
             },
 
-            main,
+            main: self,
             strings: Strings::new(),
             globals: Record::default(),
             saved: vec![],
@@ -39,7 +39,9 @@ impl Interpreter {
 
         Ok(this)
     }
+}
 
+impl Interpreter {
     pub fn exec(&mut self, func: &str, args: &[Value]) -> Result<Value> {
         let func = self.strings.intern(func)?;
         self.fncall(&func, args.to_owned())?;

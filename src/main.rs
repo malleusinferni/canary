@@ -15,7 +15,7 @@ fn main() {
 }
 
 fn load(path: &Path) -> Result<()> {
-    let _world = canary::compile(path)?;
+    let _world = canary::compile(path)?.start()?;
 
     Ok(())
 }
