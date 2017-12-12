@@ -107,14 +107,6 @@ term: Expr = {
         }
     },
 
-    <lhs:factor> "[" <rhs:expr> "]" => {
-        Expr::Binop {
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-            op: Binop::Idx,
-        }
-    },
-
     <factor> => <>,
 };
 
@@ -130,7 +122,15 @@ factor: Expr = {
         Expr::Call { name, args }
     },
 
-    "[" <comma<expr>> "]" => Expr::List(<>),
+    <lhs:factor> "[" <rhs:expr> "]" => {
+        Expr::Binop {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op: Binop::Idx,
+        }
+    },
+
+    "[" <comma<expr>?> "]" => Expr::List((<>).unwrap_or(vec![])),
 
     "(" <expr> ")" => <>,
 };
