@@ -4,8 +4,8 @@ use super::*;
 use value::*;
 use opcode::*;
 
-pub struct World {
-    program: Program,
+pub struct Interpreter {
+    main: Program,
     strings: Strings,
     globals: Record,
     frame: Frame,
@@ -18,16 +18,16 @@ struct Frame {
     pc: usize,
 }
 
-impl World {
-    pub fn new(program: Program) -> Self {
-        World {
+impl Interpreter {
+    pub fn new(main: Program) -> Self {
+        Interpreter {
             frame: Frame {
-                code: program.begin.clone(),
+                code: main.begin.clone(),
                 locals: vec![],
                 pc: 0,
             },
 
-            program,
+            main,
             strings: Strings::new(),
             globals: Record::default(),
             saved: vec![],
@@ -153,7 +153,7 @@ impl World {
     }
 
     fn fncall(&mut self, name: &Ident, argv: Vec<Value>) -> Result<()> {
-        match self.program.call(name.clone(), &argv)? {
+        match self.main.call(name.clone(), &argv)? {
             Func::Native(call) => {
                 // Immediately call it and save the return value
                 self.push(call(argv)?);

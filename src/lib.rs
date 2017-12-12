@@ -19,7 +19,7 @@ use std::path::Path;
 use ident::*;
 use token::Token;
 
-pub fn compile(path: &Path) -> Result<eval::World> {
+pub fn compile(path: &Path) -> Result<eval::Interpreter> {
     use std::fs::File;
     use std::io::Read;
 
@@ -29,7 +29,7 @@ pub fn compile(path: &Path) -> Result<eval::World> {
     let tokens = token::Tokenizer::new(&source).spanned();
     let module = ast::parse_module(tokens)?;
     let program = module.translate()?;
-    Ok(eval::World::new(program))
+    Ok(eval::Interpreter::new(program))
 }
 
 #[derive(Debug, Fail)]
