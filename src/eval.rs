@@ -19,8 +19,8 @@ struct Frame {
 }
 
 impl Interpreter {
-    pub fn new(main: Module) -> Self {
-        Interpreter {
+    pub fn new(main: Module) -> Result<Self> {
+        let mut this = Interpreter {
             frame: Frame {
                 code: main.begin.clone(),
                 locals: vec![],
@@ -31,7 +31,13 @@ impl Interpreter {
             strings: Strings::new(),
             globals: Record::default(),
             saved: vec![],
+        };
+
+        while this.frame.pc < this.frame.code.len() {
+            this.step()?;
         }
+
+        Ok(this)
     }
 
     pub fn exec(&mut self, func: &str, args: &[Value]) -> Result<Value> {

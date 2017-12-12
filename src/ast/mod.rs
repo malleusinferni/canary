@@ -9,6 +9,7 @@ pub use self::grammar::{parse_def, parse_block_body, parse_module};
 
 #[derive(Clone, Debug)]
 pub struct Module {
+    pub begin: Vec<Stmt>,
     pub defs: Vec<Def>,
 }
 
@@ -123,6 +124,7 @@ fn translation() {
     };
 
     let module = Module {
+        begin: vec![],
         defs: vec![src],
     };
 

@@ -27,9 +27,8 @@ pub fn compile(path: &Path) -> Result<eval::Interpreter> {
     File::open(path)?.read_to_string(&mut source)?;
 
     let tokens = token::Tokenizer::new(&source).spanned();
-    let module = ast::parse_module(tokens)?;
-    let program = module.translate()?;
-    Ok(eval::Interpreter::new(program))
+    let module = ast::parse_module(tokens)?.translate()?;
+    eval::Interpreter::new(module)
 }
 
 #[derive(Debug, Fail)]

@@ -87,4 +87,8 @@ impl InterpretedFn {
     pub fn fetch(&self, pc: usize) -> Result<Op> {
         self.0.get(pc).cloned().ok_or(Error::IndexOutOfBounds)
     }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }

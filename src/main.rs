@@ -15,9 +15,7 @@ fn main() {
 }
 
 fn load(path: &Path) -> Result<()> {
-    let mut world = canary::compile(path)?;
-
-    world.exec("main", &[])?;
+    let _world = canary::compile(path)?;
 
     Ok(())
 }

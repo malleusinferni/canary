@@ -5,7 +5,10 @@ use super::Error;
 grammar;
 
 pub module: Module = {
-    <defs:def*> => Module { defs },
+    <begin:stmt*> <defs:def*> => {
+        let begin = begin.into_iter().filter_map(|a| a).collect();
+        Module { begin, defs }
+    },
 };
 
 pub def: Def = {

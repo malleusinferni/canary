@@ -104,6 +104,16 @@ impl ast::Module {
     pub fn translate(self) -> Result<Module> {
         let mut module = Module::stdlib()?;
 
+        module.begin = {
+            let mut asm = Assembler::new(&mut module.strings, vec![]);
+
+            for stmt in self.begin.into_iter() {
+                asm.tr_stmt(stmt)?;
+            }
+
+            asm.build()?
+        };
+
         for def in self.defs.into_iter() {
             module.def(def)?;
         }
