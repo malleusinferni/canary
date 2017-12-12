@@ -6,6 +6,7 @@ extern crate failure_derive;
 extern crate lalrpop_util;
 
 pub mod ident;
+pub mod pattern;
 pub mod token;
 pub mod ast;
 pub mod value;
@@ -47,6 +48,9 @@ pub enum Error {
 
     #[fail(display="invalid identifier {:?}", input)]
     InvalidIdent { input: String, },
+
+    #[fail(display="invalid regex")]
+    InvalidRegex,
 
     #[fail(display="incorrect indentation")]
     IncorrectIndent,

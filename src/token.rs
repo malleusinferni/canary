@@ -1,6 +1,7 @@
 use super::*;
 use ident::*;
 use value::*;
+use pattern::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
@@ -9,6 +10,7 @@ pub enum Token {
     VAR(Ident),
     INT(Int),
     STR(Str),
+    PAT(Pattern),
     LPAR,
     RPAR,
     LSQB,
@@ -24,6 +26,7 @@ pub enum Token {
     RETURN,
     EQUAL,
     COMMA,
+    MATCH,
     DOT,
     ADD,
     SUB,
@@ -63,6 +66,38 @@ impl<'a> Tokenizer<'a> {
     pub fn spanned(self) -> Spanned<Self> {
         Spanned { inner: self }
     }
+
+    fn pattern(&mut self) -> Result<Pattern> {
+        let err = || Error::InvalidRegex;
+
+        let open = self.input.next().ok_or(err())?;
+
+        let close = match open {
+            '(' => ')',
+            '[' => ']',
+            '{' => '}',
+            '<' => '>',
+            '/' => '/',
+            '|' => '|',
+            '"' => '"',
+            _ => return Err(err()),
+        };
+
+        let mut chars = String::new();
+
+        while let Some(ch) = self.input.next() {
+            if ch == close {
+                let text = self.strings.intern(chars)?;
+                return Ok(Pattern::Find(text));
+            } else if ch == '\n' {
+                return Err(err());
+            } else {
+                chars.push(ch);
+            }
+        }
+
+        Err(err())
+    }
 }
 
 impl<'a> Iterator for Tokenizer<'a> {
@@ -95,7 +130,6 @@ impl<'a> Iterator for Tokenizer<'a> {
             '}' => Token::RCBR,
 
             ':' => Token::COLON,
-            '=' => Token::EQUAL,
             ',' => Token::COMMA,
             ';' => Token::EOL,
             '.' => Token::DOT,
@@ -104,6 +138,13 @@ impl<'a> Iterator for Tokenizer<'a> {
             '-' => Token::SUB,
             '/' => Token::DIV,
             '*' => Token::MUL,
+
+            '=' => if let Some(&'~') = self.input.peek() {
+                self.input.next();
+                Token::MATCH
+            } else {
+                Token::EQUAL
+            },
 
             '"' => {
                 let mut buf = String::new();
@@ -153,6 +194,11 @@ impl<'a> Iterator for Tokenizer<'a> {
                     "else" => Token::ELSE,
                     "while" => Token::WHILE,
                     "return" => Token::RETURN,
+
+                    "re" => return Some(self.pattern().map(|pat| {
+                        Token::PAT(pat)
+                    })),
+
                     _ => {
                         let ident = self.strings.intern(word).unwrap();
                         if self.input.peek() == Some(&'(') {
@@ -203,6 +249,7 @@ impl fmt::Display for Token {
             Token::COMMA => write!(f, ","),
             Token::COLON => write!(f, ":"),
             Token::EQUAL => write!(f, "="),
+            Token::MATCH => write!(f, "=~"),
             Token::ADD => write!(f, "+"),
             Token::SUB => write!(f, "-"),
             Token::DIV => write!(f, "/"),
@@ -212,6 +259,7 @@ impl fmt::Display for Token {
             Token::VAR(ref id) => write!(f, "${}", id),
             Token::STR(ref s) => write!(f, "{:?}", s),
             Token::INT(i) => write!(f, "{}", i),
+            Token::PAT(ref p) => write!(f, "{}", p),
             Token::LPAR => write!(f, "("),
             Token::RPAR => write!(f, ")"),
             Token::LSQB => write!(f, "["),

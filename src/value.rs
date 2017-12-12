@@ -6,6 +6,7 @@ use std::ops::{Add, Sub, Div, Mul};
 use super::*;
 
 use ident::*;
+use pattern::*;
 
 pub type Nil = ();
 pub type Int = i32;
@@ -59,7 +60,7 @@ macro_rules! impl_value {
     }
 }
 
-impl_value!(Nil, Int, Str, List, Record, Ident);
+impl_value!(Nil, Int, Str, List, Record, Pattern, Ident);
 
 impl Value {
     pub fn from_slice<T: AsRef<[Value]>>(slice: T) -> Self {
@@ -67,6 +68,12 @@ impl Value {
         let vec_deque = slice.iter().cloned().collect();
         let list = Arc::new(RefCell::new(vec_deque));
         Value::List(list)
+    }
+
+    pub fn from_iter<I, T>(iter: I) -> Self
+        where I: Iterator<Item=T>, T: Into<Value>
+    {
+        Value::List(Arc::new(RefCell::new(iter.map(|t| t.into()).collect())))
     }
 
     pub fn index(self, rhs: Self) -> Result<Self> {
@@ -269,6 +276,8 @@ impl Display for Value {
 
                 write!(f, "{{ {} }}", contents)
             },
+
+            Value::Pattern(ref pat) => pat.fmt(f),
         }
     }
 }

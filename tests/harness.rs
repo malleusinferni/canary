@@ -14,3 +14,4 @@ generate!(while_loops);
 generate!(arrays);
 generate!(records);
 generate!(functions);
+generate!(patterns);

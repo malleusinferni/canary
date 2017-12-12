@@ -85,6 +85,26 @@ impl Module {
             arg.len() as Int
         }))?;
 
+        std.def_native("split", AtLeast(1), |args| Ok({
+            use pattern::*;
+
+            let mut args = args.into_iter();
+            let text = Str::extract(args.next().unwrap())?;
+            let pat = match args.next() {
+                Some(pat) => Pattern::extract(pat)?,
+                None => Pattern::Find(" ".into())
+            };
+
+            match pat {
+                Pattern::Find(pat) => {
+                    let pat: &str = pat.as_ref();
+                    Value::from_iter(text.split(pat).map(|s| {
+                        Str::from(s)
+                    }))
+                }
+            }
+        }))?;
+
         std.def_native("new", AtLeast(0), |args| Ok({
             if !args.is_empty() {
                 println!("Warning: Arguments to new() not implemented");
@@ -196,6 +216,7 @@ impl<'a> Assembler<'a> {
             Op::PUSHI { int } => Op::PUSHI { int },
             Op::PUSHS { string } => Op::PUSHS { string },
             Op::PUSHN { name } => Op::PUSHN { name },
+            Op::PAT { pat } => Op::PAT { pat },
             Op::LIST { len } => Op::LIST { len },
             Op::REC => Op::REC,
             Op::CALL { name, argc } => Op::CALL { name, argc },
@@ -364,6 +385,10 @@ impl<'a> Assembler<'a> {
                 self.emit(Op::PUSHS { string });
             },
 
+            Literal::Pattern(pat) => {
+                self.emit(Op::PAT { pat });
+            },
+
             Literal::Ident(id) => {
                 self.emit(Op::PUSHN { name: id });
             },
@@ -445,6 +470,7 @@ impl<'a> Assembler<'a> {
             ast::Binop::Div => Binop::DIV,
             ast::Binop::Mul => Binop::MUL,
             ast::Binop::Idx => Binop::IDX,
+            ast::Binop::Match => Binop::MATCH,
         };
 
         self.emit(Op::BINOP { op });

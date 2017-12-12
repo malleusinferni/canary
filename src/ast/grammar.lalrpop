@@ -110,6 +110,14 @@ term: Expr = {
         }
     },
 
+    <lhs:factor> "=~" <rhs:factor> => {
+        Expr::Binop {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op: Binop::Match,
+        }
+    },
+
     <factor> => <>,
 };
 
@@ -119,6 +127,8 @@ factor: Expr = {
     <string> => Expr::Literal(Literal::Str(<>)),
 
     <var> => Expr::Name(<>),
+
+    <pattern> => Expr::Literal(Literal::Pattern(<>)),
 
     <name:near_word> "(" <args:comma<expr>?> ")" => {
         let args = args.unwrap_or_else(|| vec![]);
@@ -173,6 +183,7 @@ extern {
         "}" => Token::RCBR,
         ":" => Token::COLON,
         "=" => Token::EQUAL,
+        "=~" => Token::MATCH,
         ";" => Token::EOL,
         "," => Token::COMMA,
         "." => Token::DOT,
@@ -185,6 +196,7 @@ extern {
         far_word => Token::FARWORD(<Ident>),
         var => Token::VAR(<Ident>),
         string => Token::STR(<Str>),
+        pattern => Token::PAT(<Pattern>),
     }
 }
 

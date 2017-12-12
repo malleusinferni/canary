@@ -4,6 +4,7 @@ use std::sync::Arc;
 use super::*;
 use ident::*;
 use value::*;
+use pattern::*;
 
 pub struct Module {
     pub begin: InterpretedFn,
@@ -43,6 +44,7 @@ pub enum Op<Label=usize> {
     PUSHI { int: Int, },
     PUSHS { string: Str, },
     PUSHN { name: Ident, },
+    PAT { pat: Pattern, },
     LIST { len: usize, },
     REC,
     JUMP { dst: Label, },
@@ -56,6 +58,7 @@ pub enum Binop {
     DIV,
     MUL,
     IDX,
+    MATCH,
 }
 
 impl Module {

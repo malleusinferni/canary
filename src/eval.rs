@@ -3,6 +3,7 @@ use std::iter::FromIterator;
 use super::*;
 use value::*;
 use opcode::*;
+use pattern::*;
 
 pub struct Interpreter {
     main: Module,
@@ -104,6 +105,10 @@ impl Interpreter {
                 self.push(name);
             },
 
+            Op::PAT { pat } => {
+                self.push(pat);
+            },
+
             Op::NOT => {
                 let i: Int = self.pop()?;
                 self.push(if i == 0 { 1 } else { 0 })
@@ -119,6 +124,12 @@ impl Interpreter {
                     Binop::DIV => lhs / rhs,
                     Binop::MUL => lhs * rhs,
                     Binop::IDX => lhs.index(rhs),
+
+                    Binop::MATCH => {
+                        let rhs = Pattern::extract(rhs)?;
+                        let lhs = Str::extract(lhs)?;
+                        Ok(Value::from(if rhs.matches(&lhs) { 1 } else { 0 }))
+                    },
                 }?);
             },
 
