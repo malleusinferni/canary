@@ -5,7 +5,7 @@ use super::*;
 use ident::*;
 use value::*;
 
-pub struct Program {
+pub struct Module {
     pub begin: InterpretedFn,
     pub functions: HashMap<Ident, (Argc, Func)>,
     pub strings: Strings,
@@ -58,7 +58,7 @@ pub enum Binop {
     IDX,
 }
 
-impl Program {
+impl Module {
     pub fn call(&self, name: Ident, argv: &[Value]) -> Result<Func> {
         let (wanted, func) = self.functions.get(&name).cloned()
             .ok_or(Error::NoSuchLabel)?;
@@ -88,4 +88,3 @@ impl InterpretedFn {
         self.0.get(pc).cloned().ok_or(Error::IndexOutOfBounds)
     }
 }
-

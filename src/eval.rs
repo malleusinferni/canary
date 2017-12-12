@@ -5,7 +5,7 @@ use value::*;
 use opcode::*;
 
 pub struct Interpreter {
-    main: Program,
+    main: Module,
     strings: Strings,
     globals: Record,
     frame: Frame,
@@ -19,7 +19,7 @@ struct Frame {
 }
 
 impl Interpreter {
-    pub fn new(main: Program) -> Self {
+    pub fn new(main: Module) -> Self {
         Interpreter {
             frame: Frame {
                 code: main.begin.clone(),

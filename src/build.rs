@@ -17,7 +17,7 @@ pub struct Assembler<'a> {
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 struct Sym(usize);
 
-impl Program {
+impl Module {
     pub fn def(&mut self, def: ast::Def) -> Result<()> {
         use ast::Def;
 
@@ -61,7 +61,7 @@ impl Program {
     pub fn stdlib() -> Result<Self> {
         use self::Argc::*;
 
-        let mut std = Program {
+        let mut std = Module {
             begin: InterpretedFn::from_vec(vec![]),
             strings: Strings::new(),
             functions: HashMap::new(),
@@ -101,8 +101,8 @@ impl Program {
 }
 
 impl ast::Module {
-    pub fn translate(self) -> Result<Program> {
-        let mut module = Program::stdlib()?;
+    pub fn translate(self) -> Result<Module> {
+        let mut module = Module::stdlib()?;
 
         for def in self.defs.into_iter() {
             module.def(def)?;
