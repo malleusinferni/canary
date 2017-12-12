@@ -12,4 +12,5 @@ macro_rules! generate {
 
 generate!(while_loops);
 generate!(arrays);
+generate!(records);
 generate!(functions);

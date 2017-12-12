@@ -133,6 +133,13 @@ factor: Expr = {
         }
     },
 
+    <lhs:factor> "." <idx:far_word> => {
+        let lhs = Box::new(lhs);
+        let rhs = Box::new(Expr::Literal(Literal::Ident(idx)));
+        let op = Binop::Idx;
+        Expr::Binop { lhs, rhs, op }
+    },
+
     "[" <comma<expr>?> "]" => Expr::List((<>).unwrap_or(vec![])),
 
     "(" <expr> ")" => <>,
@@ -168,6 +175,7 @@ extern {
         "=" => Token::EQUAL,
         ";" => Token::EOL,
         "," => Token::COMMA,
+        "." => Token::DOT,
         "+" => Token::ADD,
         "-" => Token::SUB,
         "/" => Token::DIV,

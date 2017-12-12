@@ -85,6 +85,14 @@ impl Module {
             arg.len() as Int
         }))?;
 
+        std.def_native("new", AtLeast(0), |args| Ok({
+            if !args.is_empty() {
+                println!("Warning: Arguments to new() not implemented");
+            }
+
+            Record::new(HashMap::new().into())
+        }))?;
+
         std.def_native("assert", Exactly(1), |args| Ok({
             let arg = args.into_iter().next().unwrap();
             assert!(Int::extract(arg)? != 0);

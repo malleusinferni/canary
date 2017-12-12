@@ -24,6 +24,7 @@ pub enum Token {
     RETURN,
     EQUAL,
     COMMA,
+    DOT,
     ADD,
     SUB,
     DIV,
@@ -97,6 +98,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             '=' => Token::EQUAL,
             ',' => Token::COMMA,
             ';' => Token::EOL,
+            '.' => Token::DOT,
 
             '+' => Token::ADD,
             '-' => Token::SUB,
@@ -197,6 +199,7 @@ impl fmt::Display for Token {
             Token::WHILE => write!(f, "while"),
             Token::RETURN => write!(f, "return"),
             Token::EOL => write!(f, ";"),
+            Token::DOT => write!(f, "."),
             Token::COMMA => write!(f, ","),
             Token::COLON => write!(f, ":"),
             Token::EQUAL => write!(f, "="),
