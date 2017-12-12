@@ -19,12 +19,12 @@ use std::path::Path;
 use ident::*;
 use token::Token;
 
-pub fn compile(path: &Path) -> Result<eval::Interpreter> {
+pub fn compile<P: AsRef<Path>>(path: P) -> Result<eval::Interpreter> {
     use std::fs::File;
     use std::io::Read;
 
     let mut source = String::new();
-    File::open(path)?.read_to_string(&mut source)?;
+    File::open(path.as_ref())?.read_to_string(&mut source)?;
 
     let tokens = token::Tokenizer::new(&source).spanned();
     let module = ast::parse_module(tokens)?.translate()?;

@@ -5,7 +5,7 @@ macro_rules! generate {
         #[test]
         fn $name() {
             let path = format!("tests/{}.cy", stringify!($name));
-            let _ = canary::compile(path.as_ref()).unwrap();
+            let _ = canary::compile(path).unwrap();
         }
     }
 }
