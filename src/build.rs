@@ -115,7 +115,7 @@ impl Module {
 
         std.def_native("assert", Exactly(1), |args| Ok({
             let arg = args.into_iter().next().unwrap();
-            assert!(Int::extract(arg)? != 0);
+            assert!(bool::extract(arg)?);
         }))?;
 
         std.def_native("assert_eq", Exactly(2), |mut args| Ok({

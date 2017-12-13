@@ -119,8 +119,8 @@ impl Interpreter {
             },
 
             Op::NOT => {
-                let i: Int = self.pop()?;
-                self.push(if i == 0 { 1 } else { 0 })
+                let test = self.pop::<bool>()?;
+                self.push(!test);
             },
 
             Op::BINOP { op } => {
@@ -137,7 +137,7 @@ impl Interpreter {
                     Binop::MATCH => {
                         let rhs = Pattern::extract(rhs)?;
                         let lhs = Str::extract(lhs)?;
-                        Ok(Value::from(if rhs.matches(&lhs) { 1 } else { 0 }))
+                        Ok(rhs.matches(&lhs).into())
                     },
                 }?);
             },
@@ -164,9 +164,7 @@ impl Interpreter {
             },
 
             Op::JNZ { dst } => {
-                let test = self.pop::<Int>()?;
-
-                if test != 0 {
+                if self.pop::<bool>()? {
                     self.frame.pc = dst;
                 }
             },

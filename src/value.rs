@@ -145,6 +145,31 @@ impl Extract for Value {
     }
 }
 
+impl Extract for bool {
+    const TYPE_NAME: &'static str = "Bool";
+
+    fn extract(value: Value) -> Result<Self> {
+        match value {
+            Value::Nil(_) => Ok(false),
+            Value::Ident(_) => Ok(true),
+            Value::List(list) => Ok(!list.borrow().is_empty()),
+            Value::Record(_) => Ok(true),
+            Value::Int(0) => Ok(false),
+            Value::Int(_) => Ok(true),
+            Value::Str(s) => Ok(!s.is_empty()),
+
+            // TODO: Do we want this?
+            Value::Pattern(_) => Ok(true),
+        }
+    }
+}
+
+impl From<bool> for Value {
+    fn from(b: bool) -> Self {
+        Value::Int(if b { 1 } else { 0 })
+    }
+}
+
 impl Add for Value {
     type Output = Result<Self>;
 

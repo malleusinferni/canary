@@ -16,3 +16,4 @@ generate!(records);
 generate!(functions);
 generate!(patterns);
 generate!(variables);
+generate!(truthiness);
