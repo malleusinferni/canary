@@ -236,6 +236,23 @@ impl<'a> Assembler<'a> {
         Ok(InterpretedFn::from_vec(code))
     }
 
+    fn enter(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    fn leave(&mut self) -> Result<()> {
+        Ok({ self.scopes.pop().ok_or(Error::InternalCompilerErr)?; })
+    }
+
+    fn tr_block(&mut self, body: Vec<ast::Stmt>) -> Result<()> {
+        self.enter();
+        for stmt in body.into_iter() {
+            self.tr_stmt(stmt)?;
+        }
+        self.leave()?;
+        Ok(())
+    }
+
     fn tr_stmt(&mut self, stmt: ast::Stmt) -> Result<()> {
         use ast::{Stmt, Expr, Literal};
 
@@ -282,19 +299,12 @@ impl<'a> Assembler<'a> {
                     bodies.push((label, body));
                 }
 
-                for stmt in last.into_iter() {
-                    self.tr_stmt(stmt)?;
-                }
-
+                self.tr_block(last)?;
                 self.emit(Op::JUMP { dst: after.clone() });
 
                 for (label, body) in bodies.into_iter() {
                     self.label(label)?;
-
-                    for stmt in body.into_iter() {
-                        self.tr_stmt(stmt)?;
-                    }
-
+                    self.tr_block(body)?;
                     self.emit(Op::JUMP { dst: after.clone() });
                 }
 
@@ -309,9 +319,7 @@ impl<'a> Assembler<'a> {
                 self.emit(Op::JNZ { dst: after.clone() });
 
                 self.label(before.clone())?;
-                for stmt in body.into_iter() {
-                    self.tr_stmt(stmt)?;
-                }
+                self.tr_block(body)?;
 
                 self.tr_expr(test)?;
                 self.emit(Op::JNZ { dst: before.clone() });
