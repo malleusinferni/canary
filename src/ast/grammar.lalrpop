@@ -74,57 +74,67 @@ block_stmt: Stmt = {
 };
 
 expr: Expr = {
-    <lhs:term> "+" <rhs:expr> => {
-        Expr::Binop {
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-            op: Binop::Add,
-        }
+    <lhs:expr5> "or" <rhs:expr> => {
+        Binop::Or.apply(lhs, rhs)
     },
 
-    <lhs:term> "-" <rhs:expr> => {
-        Expr::Binop {
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-            op: Binop::Sub,
-        }
-    },
-
-    <term> => <>,
+    <expr5> => <>,
 };
 
-term: Expr = {
-    <lhs:factor> "*" <rhs:term> => {
-        Expr::Binop {
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-            op: Binop::Mul,
-        }
+expr5: Expr = {
+    <lhs:expr4> "and" <rhs:expr5> => {
+        Binop::And.apply(lhs, rhs)
     },
 
-    <lhs:factor> "/" <rhs:term> => {
-        Expr::Binop {
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-            op: Binop::Div,
-        }
-    },
-
-    <lhs:factor> "=~" <rhs:factor> => {
-        Expr::Binop {
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-            op: Binop::Match,
-        }
-    },
-
-    <factor> => <>,
+    <expr4> => <>,
 };
 
-factor: Expr = {
+expr4: Expr = {
+    <lhs:expr3> "eq" <rhs:expr3> => {
+        Binop::Equal.apply(lhs, rhs)
+    },
+
+    <lhs:expr3> "ne" <rhs:expr3> => {
+        Binop::NotEqual.apply(lhs, rhs)
+    },
+
+    <expr3> => <>,
+};
+
+expr3: Expr = {
+    <lhs:expr2> "+" <rhs:expr3> => {
+        Binop::Add.apply(lhs, rhs)
+    },
+
+    <lhs:expr2> "-" <rhs:expr3> => {
+        Binop::Sub.apply(lhs, rhs)
+    },
+
+    <expr2> => <>,
+};
+
+expr2: Expr = {
+    <lhs:expr1> "*" <rhs:expr2> => {
+        Binop::Mul.apply(lhs, rhs)
+    },
+
+    <lhs:expr1> "/" <rhs:expr2> => {
+        Binop::Div.apply(lhs, rhs)
+    },
+
+    <lhs:expr1> "=~" <rhs:expr1> => {
+        Binop::Match.apply(lhs, rhs)
+    },
+
+    <expr1> => <>,
+};
+
+expr1: Expr = {
     <int> => Expr::Literal(Literal::Int(<>)),
 
     <string> => Expr::Literal(Literal::Str(<>)),
+
+    <sym> => Expr::Literal(Literal::Ident(<>)),
 
     <var> => Expr::Local(<>),
 
@@ -137,19 +147,13 @@ factor: Expr = {
         Expr::Call { name, args }
     },
 
-    <lhs:factor> "[" <rhs:expr> "]" => {
-        Expr::Binop {
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-            op: Binop::Idx,
-        }
+    <lhs:expr1> "[" <rhs:expr> "]" => {
+        Binop::Idx.apply(lhs, rhs)
     },
 
-    <lhs:factor> "." <idx:far_word> => {
-        let lhs = Box::new(lhs);
-        let rhs = Box::new(Expr::Literal(Literal::Ident(idx)));
-        let op = Binop::Idx;
-        Expr::Binop { lhs, rhs, op }
+    <lhs:expr1> "." <idx:far_word> => {
+        let rhs = Expr::Literal(Literal::Ident(idx));
+        Binop::Idx.apply(lhs, rhs)
     },
 
     "[" <comma<expr>?> "]" => Expr::List((<>).unwrap_or(vec![])),
@@ -177,6 +181,10 @@ extern {
         "if" => Token::IF,
         "else" => Token::ELSE,
         "while" => Token::WHILE,
+        "eq" => Token::EQ,
+        "ne" => Token::NE,
+        "and" => Token::AND,
+        "or" => Token::OR,
         "(" => Token::LPAR,
         ")" => Token::RPAR,
         "[" => Token::LSQB,
@@ -198,6 +206,7 @@ extern {
         far_word => Token::FARWORD(<Ident>),
         global => Token::GLOBAL(<Ident>),
         var => Token::VAR(<Ident>),
+        sym => Token::SYM(<Ident>),
         string => Token::STR(<Str>),
         pattern => Token::PAT(<Pattern>),
     }

@@ -9,6 +9,7 @@ pub enum Token {
     FARWORD(Ident),
     GLOBAL(Ident),
     VAR(Ident),
+    SYM(Ident),
     INT(Int),
     STR(Str),
     PAT(Pattern),
@@ -29,11 +30,16 @@ pub enum Token {
     COMMA,
     MATCH,
     DOT,
+    NOT,
+    EQ,
+    NE,
     ADD,
     SUB,
     DIV,
     MUL,
     EOL,
+    AND,
+    OR,
 }
 
 use std::str::Chars;
@@ -130,7 +136,6 @@ impl<'a> Iterator for Tokenizer<'a> {
             '{' => Token::LCBR,
             '}' => Token::RCBR,
 
-            ':' => Token::COLON,
             ',' => Token::COMMA,
             ';' => Token::EOL,
             '.' => Token::DOT,
@@ -158,6 +163,24 @@ impl<'a> Iterator for Tokenizer<'a> {
                 }
 
                 return Some(Err(Error::MalformedString));
+            },
+
+            ':' => match self.input.peek().cloned() {
+                Some(w) if w.is_alphabetic() => {
+                    self.input.next();
+                    let mut word = String::new();
+                    word.push(w);
+
+                    while let Some(&w) = self.input.peek() {
+                        if !in_ident(w) { break; }
+                        word.push(w);
+                        self.input.next();
+                    }
+
+                    Token::SYM(self.strings.intern(word).unwrap())
+                },
+
+                _ => Token::COLON,
             },
 
             '$' => {
@@ -209,6 +232,11 @@ impl<'a> Iterator for Tokenizer<'a> {
                     "else" => Token::ELSE,
                     "while" => Token::WHILE,
                     "return" => Token::RETURN,
+                    "not" => Token::NOT,
+                    "eq" => Token::EQ,
+                    "ne" => Token::NE,
+                    "and" => Token::AND,
+                    "or" => Token::OR,
 
                     "re" => return Some(self.pattern().map(|pat| {
                         Token::PAT(pat)
@@ -259,6 +287,11 @@ impl fmt::Display for Token {
             Token::ELSE => write!(f, "else"),
             Token::WHILE => write!(f, "while"),
             Token::RETURN => write!(f, "return"),
+            Token::NOT => write!(f, "not"),
+            Token::EQ => write!(f, "eq"),
+            Token::NE => write!(f, "ne"),
+            Token::AND => write!(f, "and"),
+            Token::OR => write!(f, "or"),
             Token::EOL => write!(f, ";"),
             Token::DOT => write!(f, "."),
             Token::COMMA => write!(f, ","),
@@ -273,6 +306,7 @@ impl fmt::Display for Token {
             Token::FARWORD(ref id) => write!(f, "{}", id),
             Token::GLOBAL(ref id) => write!(f, "%{}", id),
             Token::VAR(ref id) => write!(f, "${}", id),
+            Token::SYM(ref id) => write!(f, ":{}", id),
             Token::STR(ref s) => write!(f, "{:?}", s),
             Token::INT(i) => write!(f, "{}", i),
             Token::PAT(ref p) => write!(f, "{}", p),

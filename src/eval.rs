@@ -134,6 +134,9 @@ impl Interpreter {
                     Binop::MUL => lhs * rhs,
                     Binop::IDX => lhs.index(rhs),
 
+                    Binop::EQ => Ok((lhs == rhs).into()),
+                    Binop::NE => Ok((lhs != rhs).into()),
+
                     Binop::MATCH => {
                         let rhs = Pattern::extract(rhs)?;
                         let lhs = Str::extract(lhs)?;

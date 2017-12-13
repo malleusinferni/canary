@@ -59,6 +59,8 @@ pub enum Binop {
     MUL,
     IDX,
     MATCH,
+    EQ,
+    NE,
 }
 
 impl Module {

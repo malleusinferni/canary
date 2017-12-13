@@ -91,6 +91,10 @@ pub enum Binop {
     Mul,
     Idx,
     Match,
+    Equal,
+    NotEqual,
+    And,
+    Or,
 }
 
 #[derive(Clone, Debug)]
@@ -100,6 +104,12 @@ pub enum Literal {
     Ident(Ident),
     Pattern(Pattern),
     Nil,
+}
+
+impl Binop {
+    pub fn apply(self, lhs: Expr, rhs: Expr) -> Expr {
+        Expr::Binop { lhs: Box::new(lhs), op: self, rhs: Box::new(rhs) }
+    }
 }
 
 #[test]
@@ -147,6 +157,7 @@ fn syntax() {
         "sub if_else() { if 1 { 1; } else if 2 { 2; } else { 3; } }",
         "sub while_loop() { while 1 { } }",
         "sub globals() { %X = %Y; }",
+        "sub symbols() { my $a = :b; :c + :d; }",
     ];
 
     for src in src {

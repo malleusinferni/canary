@@ -6,3 +6,9 @@ if [] {
 }
 
 assert new();
+
+assert 1 eq 1;
+assert 1 ne 0;
+assert [] ne 4;
+
+assert :a eq :a;

@@ -487,6 +487,12 @@ impl<'a> Assembler<'a> {
             ast::Binop::Mul => Binop::MUL,
             ast::Binop::Idx => Binop::IDX,
             ast::Binop::Match => Binop::MATCH,
+            ast::Binop::Equal => Binop::EQ,
+            ast::Binop::NotEqual => Binop::NE,
+
+            ast::Binop::And | ast::Binop::Or => {
+                unimplemented!("Short circuit booleans")
+            },
         };
 
         self.emit(Op::BINOP { op });
