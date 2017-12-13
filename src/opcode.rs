@@ -32,6 +32,7 @@ pub enum Argc {
 #[derive(Clone, Debug)]
 pub enum Op<Label=usize> {
     RET,
+    DUP,
     DROP,
     NOT,
     NIL,

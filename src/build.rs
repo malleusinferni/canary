@@ -211,6 +211,7 @@ impl<'a> Assembler<'a> {
             Op::NIL => Op::NIL,
             Op::RET => Op::RET,
             Op::NOT => Op::NOT,
+            Op::DUP => Op::DUP,
             Op::DROP => Op::DROP,
             Op::GLOBALS => Op::GLOBALS,
             Op::INS => Op::INS,
@@ -374,6 +375,33 @@ impl<'a> Assembler<'a> {
                 self.binop(op);
             },
 
+            Expr::And { lhs, rhs } => {
+                let after = self.gensym()?;
+
+                // lhs ? rhs : lhs
+
+                self.tr_expr(*lhs)?;
+                self.emit(Op::DUP);
+                self.emit(Op::NOT);
+                self.emit(Op::JNZ { dst: after });
+                self.emit(Op::DROP);
+                self.tr_expr(*rhs)?;
+                self.label(after)?;
+            },
+
+            Expr::Or { lhs, rhs } => {
+                let after = self.gensym()?;
+
+                // lhs ? lhs : rhs
+
+                self.tr_expr(*lhs)?;
+                self.emit(Op::DUP);
+                self.emit(Op::JNZ { dst: after });
+                self.emit(Op::DROP);
+                self.tr_expr(*rhs)?;
+                self.label(after)?;
+            },
+
             Expr::Not(expr) => {
                 self.tr_expr(*expr)?;
                 self.emit(Op::NOT);
@@ -494,10 +522,6 @@ impl<'a> Assembler<'a> {
             ast::Binop::Match => Binop::MATCH,
             ast::Binop::Equal => Binop::EQ,
             ast::Binop::NotEqual => Binop::NE,
-
-            ast::Binop::And | ast::Binop::Or => {
-                unimplemented!("Short circuit booleans")
-            },
         };
 
         self.emit(Op::BINOP { op });

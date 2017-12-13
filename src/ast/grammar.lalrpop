@@ -75,7 +75,7 @@ block_stmt: Stmt = {
 
 expr: Expr = {
     <lhs:expr5> "or" <rhs:expr> => {
-        Binop::Or.apply(lhs, rhs)
+        Expr::Or { lhs: lhs.into(), rhs: rhs.into() }
     },
 
     <expr5> => <>,
@@ -83,7 +83,7 @@ expr: Expr = {
 
 expr5: Expr = {
     <lhs:expr4> "and" <rhs:expr5> => {
-        Binop::And.apply(lhs, rhs)
+        Expr::And { lhs: lhs.into(), rhs: rhs.into() }
     },
 
     <expr4> => <>,

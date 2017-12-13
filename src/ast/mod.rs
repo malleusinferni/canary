@@ -79,6 +79,16 @@ pub enum Expr {
         rhs: Box<Expr>,
     },
 
+    And {
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+    },
+
+    Or {
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+    },
+
     Not(Box<Expr>),
 }
 
@@ -95,8 +105,6 @@ pub enum Binop {
     Match,
     Equal,
     NotEqual,
-    And,
-    Or,
 }
 
 #[derive(Clone, Debug)]

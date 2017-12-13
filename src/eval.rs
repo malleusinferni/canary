@@ -81,6 +81,12 @@ impl Interpreter {
                 self.push(rv);
             },
 
+            Op::DUP => {
+                let val: Value = self.pop()?;
+                self.push(val.clone());
+                self.push(val);
+            },
+
             Op::DROP => {
                 let _: Value = self.pop()?;
             },
