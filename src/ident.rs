@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::borrow::Borrow;
 
 use super::*;
 use value::Str;
@@ -70,6 +71,12 @@ impl From<Ident> for String {
 
 impl AsRef<str> for Ident {
     fn as_ref(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
+impl Borrow<str> for Ident {
+    fn borrow(&self) -> &str {
         self.0.as_ref()
     }
 }
