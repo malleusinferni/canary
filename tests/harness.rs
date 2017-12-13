@@ -18,3 +18,4 @@ generate!(patterns);
 generate!(variables);
 generate!(truthiness);
 generate!(scopes);
+generate!(strings);

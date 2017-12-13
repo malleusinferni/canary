@@ -52,6 +52,9 @@ pub enum Error {
     #[fail(display="invalid regex")]
     InvalidRegex,
 
+    #[fail(display="invalid escape sequence")]
+    InvalidEscape,
+
     #[fail(display="incorrect indentation")]
     IncorrectIndent,
 

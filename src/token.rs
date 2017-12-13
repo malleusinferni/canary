@@ -12,7 +12,7 @@ pub enum Token {
     VAR(Ident),
     SYM(Ident),
     INT(Int),
-    STR(Str),
+    STR(Vec<Interp>),
     PAT(Pattern),
     LPAR,
     RPAR,
@@ -46,6 +46,13 @@ pub enum Token {
 use std::str::Chars;
 use std::iter::Peekable;
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum Interp {
+    S(Str),
+    V(Ident),
+    G(Ident),
+}
+
 pub struct Spanned<T: Iterator<Item=Result<Token>>> {
     inner: T,
 }
@@ -73,6 +80,29 @@ impl<'a> Tokenizer<'a> {
 
     pub fn spanned(self) -> Spanned<Self> {
         Spanned { inner: self }
+    }
+
+    fn word(&mut self) -> Option<Result<Ident>> {
+        self.input.next().map(|c| {
+            self.endword(c)
+        })
+    }
+
+    fn endword(&mut self, start: char) -> Result<Ident> {
+        let mut word = String::new();
+
+        word.push(start);
+
+        while let Some(&c) = self.input.peek() {
+            if in_ident(c) {
+                word.push(c);
+                self.input.next();
+            } else {
+                break;
+            }
+        }
+
+        self.strings.intern(word)
     }
 
     fn pattern(&mut self) -> Result<Pattern> {
@@ -105,6 +135,60 @@ impl<'a> Tokenizer<'a> {
         }
 
         Err(err())
+    }
+
+    fn interp(&mut self) -> Result<Token> {
+        let err = || Error::MalformedString;
+
+        let mut items = Vec::new();
+
+        while let Some(ch) = self.input.next() {
+            match ch {
+                '"' => return Ok(Token::STR(items)),
+
+                '$' => {
+                    let word = self.word().unwrap_or(Err(err()))?;
+                    items.push(Interp::V(word));
+                }
+
+                '%' => {
+                    let word = self.word().unwrap_or(Err(err()))?;
+                    items.push(Interp::G(word));
+                },
+
+                other => {
+                    let mut s = String::new();
+                    s.push(other);
+
+                    while let Some(&c) = self.input.peek() {
+                        if "$%\"".contains(c) { break; }
+
+                        self.input.next();
+
+                        if c == '\\' {
+                            s.push(self.unescape()?);
+                        } else {
+                            s.push(c);
+                        }
+                    }
+
+                    items.push(Interp::S(self.strings.intern(s)?));
+                },
+            }
+        }
+
+        Err(err())
+    }
+
+    fn unescape(&mut self) -> Result<char> {
+        Ok(match self.input.next().ok_or(Error::MalformedString)? {
+            '$' => '$',
+            '%' => '%',
+            'n' => '\n',
+            'r' => '\r',
+            't' => '\t',
+            _ => return Err(Error::InvalidEscape),
+        })
     }
 }
 
@@ -154,16 +238,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             },
 
             '"' => {
-                let mut buf = String::new();
-                while let Some(c) = self.input.next() {
-                    if c == '"' {
-                        return Some(Ok(Token::STR(buf.into())));
-                    } else {
-                        buf.push(c);
-                    }
-                }
-
-                return Some(Err(Error::MalformedString));
+                return Some(self.interp());
             },
 
             ':' => match self.input.peek().cloned() {
@@ -346,7 +421,14 @@ fn syntax() {
 
 #[test]
 fn string() {
-    let src = r#" "let's go" "#;
-    let t = Tokenizer::new(src);
-    t.collect::<Result<Vec<_>, _>>().unwrap();
+    let strings = &[
+        r#" "let's go" "#,
+        r#" "okay $friend" "#,
+        r#" "hello\nworld" "#,
+    ];
+
+    for string in strings {
+        let t = Tokenizer::new(string);
+        t.collect::<Result<Vec<_>, _>>().unwrap();
+    }
 }

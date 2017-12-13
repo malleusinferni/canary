@@ -69,6 +69,8 @@ pub enum Expr {
 
     Literal(Literal),
 
+    Str(Vec<Expr>),
+
     List(Vec<Expr>),
 
     Record(Vec<(Ident, Expr)>),

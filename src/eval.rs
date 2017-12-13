@@ -174,6 +174,17 @@ impl Interpreter {
                 self.push(List::new(list.into()));
             },
 
+            Op::STR { len } => {
+                let mut buf = String::new();
+
+                let items: Vec<_> = self.capture(len)?;
+                for item in items {
+                    buf.push_str(&item.to_string());
+                }
+
+                self.push(Str::from(buf));
+            },
+
             Op::REC => {
                 self.push(Record::default());
             },

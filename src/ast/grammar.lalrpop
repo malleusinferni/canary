@@ -1,5 +1,5 @@
 use ast::*;
-//use token::*;
+use token::Interp;
 use super::Error;
 
 grammar;
@@ -132,8 +132,6 @@ expr2: Expr = {
 expr1: Expr = {
     <int> => Expr::Literal(Literal::Int(<>)),
 
-    <string> => Expr::Literal(Literal::Str(<>)),
-
     <sym> => Expr::Literal(Literal::Ident(<>)),
 
     <var> => Expr::Local(<>),
@@ -143,6 +141,14 @@ expr1: Expr = {
     <group> => Expr::Group(<>),
 
     <pattern> => Expr::Literal(Literal::Pattern(<>)),
+
+    <items:string> => Expr::Str({
+        items.into_iter().map(|i| match i {
+            Interp::S(s) => Expr::Literal(Literal::Str(s)),
+            Interp::V(v) => Expr::Local(v),
+            Interp::G(g) => Expr::Global(g),
+        }).collect()
+    }),
 
     <name:near_word> "(" <args:comma<expr>?> ")" => {
         let args = args.unwrap_or_else(|| vec![]);
@@ -210,7 +216,7 @@ extern {
         group => Token::GROUP(<u8>),
         var => Token::VAR(<Ident>),
         sym => Token::SYM(<Ident>),
-        string => Token::STR(<Str>),
+        string => Token::STR(<Vec<Interp>>),
         pattern => Token::PAT(<Pattern>),
     }
 }

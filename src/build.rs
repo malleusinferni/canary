@@ -228,6 +228,7 @@ impl<'a> Assembler<'a> {
             Op::PUSHN { name } => Op::PUSHN { name },
             Op::PAT { pat } => Op::PAT { pat },
             Op::LIST { len } => Op::LIST { len },
+            Op::STR { len } => Op::STR { len },
             Op::REC => Op::REC,
             Op::CALL { name, argc } => Op::CALL { name, argc },
             Op::BINOP { op } => Op::BINOP { op },
@@ -373,6 +374,15 @@ impl<'a> Assembler<'a> {
                 }
 
                 self.emit(Op::LIST { len });
+            },
+
+            Expr::Str(items) => {
+                let len = items.len();
+                for item in items.into_iter() {
+                    self.tr_expr(item)?;
+                }
+
+                self.emit(Op::STR { len });
             },
 
             Expr::Record(pairs) => {

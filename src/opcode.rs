@@ -48,6 +48,7 @@ pub enum Op<Label=usize> {
     PUSHN { name: Ident, },
     PAT { pat: Pattern, },
     LIST { len: usize, },
+    STR { len: usize, },
     REC,
     JUMP { dst: Label, },
     JNZ { dst: Label, },
