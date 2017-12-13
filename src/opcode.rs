@@ -51,6 +51,7 @@ pub enum Op<Label=usize> {
     REC,
     JUMP { dst: Label, },
     JNZ { dst: Label, },
+    MARK { len: usize, },
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -92,7 +93,7 @@ impl InterpretedFn {
     }
 
     pub fn fetch(&self, pc: usize) -> Result<Op> {
-        self.0.get(pc).cloned().ok_or(Error::IndexOutOfBounds)
+        self.0.get(pc).cloned().ok_or(Error::PcOutOfBounds { pc })
     }
 
     pub fn len(&self) -> usize {

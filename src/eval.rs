@@ -15,6 +15,7 @@ pub struct Interpreter {
 
 struct Frame {
     code: InterpretedFn,
+    mark: usize,
     locals: Vec<Value>,
     groups: Vec<Value>,
     pc: usize,
@@ -27,6 +28,7 @@ impl Module {
                 code: self.begin.clone(),
                 locals: vec![],
                 groups: vec![],
+                mark: 0,
                 pc: 0,
             },
 
@@ -107,7 +109,7 @@ impl Interpreter {
 
             Op::GROUP { num } => {
                 let group = self.frame.groups.get(num as usize).cloned()
-                    .ok_or(Error::IndexOutOfBounds)?;
+                    .ok_or(Error::NoSuchGroup { num })?;
                 self.push(group);
             }
 
@@ -186,6 +188,14 @@ impl Interpreter {
                 }
             },
 
+            Op::MARK { len } => {
+                if len > self.frame.locals.len() {
+                    return Err(Error::MarkTooHigh);
+                }
+
+                self.frame.mark = len;
+            },
+
             Op::CALL { name, argc } => {
                 let mut argv = self.capture(argc)?;
                 self.fncall(&name, argv)?;
@@ -205,10 +215,13 @@ impl Interpreter {
             Func::Interpreted(code) => {
                 use std::mem::swap;
 
-                let groups = vec![];
-                let locals = argv;
-                let pc = 0;
-                self.saved.push(Frame { groups, locals, pc, code });
+                self.saved.push(Frame {
+                    groups: vec![],
+                    mark: argv.len(),
+                    locals: argv,
+                    pc: 0,
+                    code,
+                });
 
                 swap(&mut self.frame, self.saved.last_mut().unwrap());
 
@@ -220,9 +233,14 @@ impl Interpreter {
     }
 
     pub fn pop<V: Extract>(&mut self) -> Result<V> {
-        Extract::extract({
-            self.frame.locals.pop().ok_or(Error::StackUnderflow)?
-        })
+        let val = self.frame.locals.pop()
+            .ok_or(Error::StackUnderflow)?;
+
+        if self.frame.locals.len() < self.frame.mark {
+            return Err(Error::PoppedLocalVar);
+        }
+
+        Extract::extract(val)
     }
 
     pub fn push<V: Into<Value>>(&mut self, item: V) {
@@ -230,15 +248,16 @@ impl Interpreter {
     }
 
     fn read<V: Extract>(&self, index: usize) -> Result<V> {
-        Extract::extract({
-            self.frame.locals.get(index).cloned()
-                .ok_or(Error::IndexOutOfBounds)?
-        })
+        if index >= self.frame.mark {
+            return Err(Error::LocalVarOutOfBounds { index });
+        }
+
+        Extract::extract(self.frame.locals[index].clone())
     }
 
     fn write<V: Into<Value>>(&mut self, item: V, index: usize) -> Result<()> {
-        if index >= self.frame.locals.len() {
-            Err(Error::IndexOutOfBounds)
+        if index >= self.frame.mark {
+            Err(Error::LocalVarOutOfBounds { index })
         } else {
             Ok({ self.frame.locals[index] = item.into() })
         }
@@ -246,7 +265,8 @@ impl Interpreter {
 
     fn capture<O: FromIterator<Value>>(&mut self, len: usize) -> Result<O> {
         let start = self.frame.locals.len().checked_sub(len)
-            .ok_or(Error::IndexOutOfBounds)?;
+            .ok_or(Error::ListTooLong)?;
+
         Ok(self.frame.locals.drain(start ..).collect())
     }
 }

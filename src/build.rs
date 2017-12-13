@@ -231,6 +231,7 @@ impl<'a> Assembler<'a> {
             Op::REC => Op::REC,
             Op::CALL { name, argc } => Op::CALL { name, argc },
             Op::BINOP { op } => Op::BINOP { op },
+            Op::MARK { len } => Op::MARK { len },
         })).collect::<Result<Vec<Op>>>()?;
 
         Ok(InterpretedFn::from_vec(code))
@@ -245,11 +246,13 @@ impl<'a> Assembler<'a> {
     }
 
     fn tr_block(&mut self, body: Vec<ast::Stmt>) -> Result<()> {
+        let len = self.depth();
         self.enter();
         for stmt in body.into_iter() {
             self.tr_stmt(stmt)?;
         }
         self.leave()?;
+        self.emit(Op::MARK { len });
         Ok(())
     }
 
@@ -484,17 +487,26 @@ impl<'a> Assembler<'a> {
         Ok(sym)
     }
 
-    fn local(&mut self, id: Ident) -> Result<()> {
-        let index = self.scopes.iter().map(|scope| scope.len()).sum();
+    fn depth(&self) -> usize {
+        self.scopes.iter().map(|scope| scope.len()).sum()
+    }
 
-        self.scopes.last_mut().ok_or(Error::InternalCompilerErr)
-            .and_then(|scope| {
-                if scope.contains_key(&id) {
-                    Err(Error::VariableRenamed)
-                } else {
-                    Ok({ scope.insert(id, index);  })
-                }
-            })
+    fn local(&mut self, id: Ident) -> Result<()> {
+        let index = self.depth();
+
+        if let Some(scope) = self.scopes.last_mut() {
+            if scope.contains_key(&id) {
+                return Err(Error::VariableRenamed);
+            }
+
+            scope.insert(id, index);
+        } else {
+            return Err(Error::InternalCompilerErr);
+        }
+
+        self.emit(Op::MARK { len: index + 1 });
+
+        Ok(())
     }
 
     fn lookup(&self, id: Ident) -> Result<usize> {

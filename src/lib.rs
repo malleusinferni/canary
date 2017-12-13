@@ -82,6 +82,24 @@ pub enum Error {
     #[fail(display="index out of bounds")]
     IndexOutOfBounds,
 
+    #[fail(display="program counter {} out of bounds", pc)]
+    PcOutOfBounds { pc: usize },
+
+    #[fail(display="local var {} out of bounds", index)]
+    LocalVarOutOfBounds { index: usize, },
+
+    #[fail(display="list too long")]
+    ListTooLong,
+
+    #[fail(display="mark too high")]
+    MarkTooHigh,
+
+    #[fail(display="popped a local variable")]
+    PoppedLocalVar,
+
+    #[fail(display="no such group ${}", num)]
+    NoSuchGroup { num: u8 },
+
     #[fail(display="no such label")]
     NoSuchLabel,
 
