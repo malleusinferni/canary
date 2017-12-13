@@ -100,6 +100,12 @@ pub enum Error {
     #[fail(display="variable not defined")]
     VariableUndefined,
 
+    #[fail(display="in {}: {}", context, cause)]
+    WithContext {
+        context: String,
+        cause: Box<Error>,
+    },
+
     #[fail(display="{}", parse)]
     Parse {
         parse: Box<lalrpop_util::ParseError<usize, Token, Error>>,
@@ -112,6 +118,13 @@ pub enum Error {
 }
 
 pub type Result<T, E=Error> = std::result::Result<T, E>;
+
+impl Error {
+    pub fn decorate(self, context: String) -> Self {
+        let cause = Box::new(self);
+        Error::WithContext { cause, context }
+    }
+}
 
 impl From<std::io::Error> for Error {
     fn from(io: std::io::Error) -> Self {

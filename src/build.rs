@@ -28,7 +28,12 @@ impl Module {
         let mut asm = Assembler::new(&mut self.strings, args);
 
         for stmt in body.into_iter() {
-            asm.tr_stmt(stmt)?;
+            asm.tr_stmt(stmt).map_err(|cause| {
+                Error::WithContext {
+                    cause: cause.into(),
+                    context: format!("sub {}", &name),
+                }
+            })?;
         }
 
         // Implicit return
