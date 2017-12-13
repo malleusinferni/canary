@@ -126,7 +126,9 @@ factor: Expr = {
 
     <string> => Expr::Literal(Literal::Str(<>)),
 
-    <var> => Expr::Name(<>),
+    <var> => Expr::Local(<>),
+
+    <global> => Expr::Global(<>),
 
     <pattern> => Expr::Literal(Literal::Pattern(<>)),
 
@@ -194,6 +196,7 @@ extern {
         int => Token::INT(<Int>),
         near_word => Token::NEARWORD(<Ident>),
         far_word => Token::FARWORD(<Ident>),
+        global => Token::GLOBAL(<Ident>),
         var => Token::VAR(<Ident>),
         string => Token::STR(<Str>),
         pattern => Token::PAT(<Pattern>),

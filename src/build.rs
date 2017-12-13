@@ -153,6 +153,7 @@ impl ast::Module {
 enum Lvalue {
     Store { lhs: Ident },
     Insert { lhs: ast::Expr, idx: ast::Expr },
+    SetGlobal { name: Ident },
 }
 
 impl ast::Expr {
@@ -160,7 +161,9 @@ impl ast::Expr {
         use ast::{Expr, Binop};
 
         match self {
-            Expr::Name(lhs) => Ok(Lvalue::Store { lhs }),
+            Expr::Local(lhs) => Ok(Lvalue::Store { lhs }),
+
+            Expr::Global(name) => Ok(Lvalue::SetGlobal { name }),
 
             Expr::Binop { lhs, rhs, op: Binop::Idx } => {
                 Ok(Lvalue::Insert { lhs: *lhs, idx: *rhs })
@@ -247,6 +250,13 @@ impl<'a> Assembler<'a> {
                     self.tr_expr(lhs)?;
                     self.emit(Op::INS);
                 },
+
+                Lvalue::SetGlobal { name } => {
+                    self.tr_expr(rhs)?;
+                    self.emit(Op::PUSHN { name });
+                    self.emit(Op::GLOBALS);
+                    self.emit(Op::INS);
+                },
             },
 
             Stmt::Return { rhs } => {
@@ -319,8 +329,14 @@ impl<'a> Assembler<'a> {
         use ast::Expr;
 
         match expr {
-            Expr::Name(id) => {
+            Expr::Local(id) => {
                 self.load(id)?;
+            },
+
+            Expr::Global(id) => {
+                self.emit(Op::GLOBALS);
+                self.emit(Op::PUSHN { name: id });
+                self.emit(Op::BINOP { op: Binop::IDX });
             },
 
             Expr::Literal(lit) => {

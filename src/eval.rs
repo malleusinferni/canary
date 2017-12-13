@@ -54,6 +54,15 @@ impl Interpreter {
         self.pop()
     }
 
+    pub fn set_global<V>(&mut self, name: &str, value: V) -> Result<()>
+        where V: Into<Value>
+    {
+        let value = value.into();
+        let name: Ident = self.strings.intern(name)?;
+        self.globals.borrow_mut().insert(name, value);
+        Ok(())
+    }
+
     pub fn step(&mut self) -> Result<()> {
         let op = self.frame.code.fetch(self.frame.pc)?;
 

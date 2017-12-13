@@ -7,6 +7,7 @@ use pattern::*;
 pub enum Token {
     NEARWORD(Ident),
     FARWORD(Ident),
+    GLOBAL(Ident),
     VAR(Ident),
     INT(Int),
     STR(Str),
@@ -178,6 +179,20 @@ impl<'a> Iterator for Tokenizer<'a> {
                 Token::VAR(self.strings.intern(word).unwrap())
             },
 
+            '%' => {
+                let mut word = String::new();
+                let w = self.input.next()?;
+
+                word.push(w);
+                while let Some(&w) = self.input.peek() {
+                    if !in_ident(w) { break; }
+                    word.push(w);
+                    self.input.next();
+                }
+
+                Token::GLOBAL(self.strings.intern(word).unwrap())
+            },
+
             w if w.is_alphabetic() => {
                 let mut word = String::new();
                 word.push(w);
@@ -256,6 +271,7 @@ impl fmt::Display for Token {
             Token::MUL => write!(f, "*"),
             Token::NEARWORD(ref id) => write!(f, "{}", id),
             Token::FARWORD(ref id) => write!(f, "{}", id),
+            Token::GLOBAL(ref id) => write!(f, "%{}", id),
             Token::VAR(ref id) => write!(f, "${}", id),
             Token::STR(ref s) => write!(f, "{:?}", s),
             Token::INT(i) => write!(f, "{}", i),

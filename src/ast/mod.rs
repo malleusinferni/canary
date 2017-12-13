@@ -56,7 +56,9 @@ pub enum Stmt {
 
 #[derive(Clone, Debug)]
 pub enum Expr {
-    Name(Ident),
+    Local(Ident),
+
+    Global(Ident),
 
     Call {
         name: Ident,
@@ -114,13 +116,13 @@ fn translation() {
         body: vec!{
             Stmt::My { lhs: x.clone(), rhs: None, },
             Stmt::Assign {
-                lhs: Expr::Name(x.clone()),
+                lhs: Expr::Local(x.clone()),
                 rhs: Expr::Literal(Literal::Str(world)),
             },
             Stmt::Bare {
                 rhs: Expr::Call {
                     name: print,
-                    args: vec![Expr::Name(x.clone())],
+                    args: vec![Expr::Local(x.clone())],
                 },
             },
         },
@@ -144,6 +146,7 @@ fn syntax() {
         "sub simple_if() { if 0 { } }",
         "sub if_else() { if 1 { 1; } else if 2 { 2; } else { 3; } }",
         "sub while_loop() { while 1 { } }",
+        "sub globals() { %X = %Y; }",
     ];
 
     for src in src {
