@@ -216,6 +216,7 @@ impl<'a> Assembler<'a> {
             Op::INS => Op::INS,
             Op::LOAD { src } => Op::LOAD { src },
             Op::STORE { dst } => Op::STORE { dst },
+            Op::GROUP { num } => Op::GROUP { num },
             Op::PUSHI { int } => Op::PUSHI { int },
             Op::PUSHS { string } => Op::PUSHS { string },
             Op::PUSHN { name } => Op::PUSHN { name },
@@ -337,6 +338,10 @@ impl<'a> Assembler<'a> {
                 self.emit(Op::GLOBALS);
                 self.emit(Op::PUSHN { name: id });
                 self.emit(Op::BINOP { op: Binop::IDX });
+            },
+
+            Expr::Group(num) => {
+                self.emit(Op::GROUP { num });
             },
 
             Expr::Literal(lit) => {

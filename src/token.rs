@@ -8,6 +8,7 @@ pub enum Token {
     NEARWORD(Ident),
     FARWORD(Ident),
     GLOBAL(Ident),
+    GROUP(u8),
     VAR(Ident),
     SYM(Ident),
     INT(Int),
@@ -184,22 +185,23 @@ impl<'a> Iterator for Tokenizer<'a> {
             },
 
             '$' => {
-                let mut word = String::new();
                 let w = self.input.next()?;
-
-                if !w.is_alphabetic() {
-                    unimplemented!("Special vars");
-                }
-
+                let mut word = String::new();
                 word.push(w);
 
-                while let Some(&w) = self.input.peek() {
-                    if !in_ident(w) { break; }
-                    word.push(w);
-                    self.input.next();
-                }
+                if w.is_digit(10) {
+                    Token::GROUP(word.parse::<u8>().unwrap())
+                } else if !w.is_alphabetic() {
+                    unimplemented!("Special vars");
+                } else {
+                    while let Some(&w) = self.input.peek() {
+                        if !in_ident(w) { break; }
+                        word.push(w);
+                        self.input.next();
+                    }
 
-                Token::VAR(self.strings.intern(word).unwrap())
+                    Token::VAR(self.strings.intern(word).unwrap())
+                }
             },
 
             '%' => {
@@ -305,6 +307,7 @@ impl fmt::Display for Token {
             Token::NEARWORD(ref id) => write!(f, "{}", id),
             Token::FARWORD(ref id) => write!(f, "{}", id),
             Token::GLOBAL(ref id) => write!(f, "%{}", id),
+            Token::GROUP(num) => write!(f, "${}", num),
             Token::VAR(ref id) => write!(f, "${}", id),
             Token::SYM(ref id) => write!(f, ":{}", id),
             Token::STR(ref s) => write!(f, "{:?}", s),

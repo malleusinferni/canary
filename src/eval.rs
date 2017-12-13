@@ -16,6 +16,7 @@ pub struct Interpreter {
 struct Frame {
     code: InterpretedFn,
     locals: Vec<Value>,
+    groups: Vec<Value>,
     pc: usize,
 }
 
@@ -25,6 +26,7 @@ impl Module {
             frame: Frame {
                 code: self.begin.clone(),
                 locals: vec![],
+                groups: vec![],
                 pc: 0,
             },
 
@@ -96,6 +98,12 @@ impl Interpreter {
                 let val: Value = self.pop()?;
                 self.write(val, dst)?;
             },
+
+            Op::GROUP { num } => {
+                let group = self.frame.groups.get(num as usize).cloned()
+                    .ok_or(Error::IndexOutOfBounds)?;
+                self.push(group);
+            }
 
             Op::GLOBALS => {
                 let globals = self.globals.clone();
@@ -191,9 +199,10 @@ impl Interpreter {
             Func::Interpreted(code) => {
                 use std::mem::swap;
 
+                let groups = vec![];
                 let locals = argv;
                 let pc = 0;
-                self.saved.push(Frame { locals, pc, code });
+                self.saved.push(Frame { groups, locals, pc, code });
 
                 swap(&mut self.frame, self.saved.last_mut().unwrap());
 

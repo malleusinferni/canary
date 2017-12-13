@@ -39,6 +39,7 @@ pub enum Op<Label=usize> {
     BINOP { op: Binop, },
     LOAD { src: usize, },
     STORE { dst: usize, },
+    GROUP { num: u8, },
     GLOBALS,
     INS,
     PUSHI { int: Int, },

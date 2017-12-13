@@ -140,6 +140,8 @@ expr1: Expr = {
 
     <global> => Expr::Global(<>),
 
+    <group> => Expr::Group(<>),
+
     <pattern> => Expr::Literal(Literal::Pattern(<>)),
 
     <name:near_word> "(" <args:comma<expr>?> ")" => {
@@ -205,6 +207,7 @@ extern {
         near_word => Token::NEARWORD(<Ident>),
         far_word => Token::FARWORD(<Ident>),
         global => Token::GLOBAL(<Ident>),
+        group => Token::GROUP(<u8>),
         var => Token::VAR(<Ident>),
         sym => Token::SYM(<Ident>),
         string => Token::STR(<Str>),

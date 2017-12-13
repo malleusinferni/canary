@@ -60,6 +60,8 @@ pub enum Expr {
 
     Global(Ident),
 
+    Group(u8),
+
     Call {
         name: Ident,
         args: Vec<Expr>,
