@@ -162,11 +162,13 @@ impl<'a, E: Env> Matcher<'a, E> {
 
         let mut good = false;
 
-        let limit = self.haystack.len().saturating_sub(self.right);
+        let left = self.right;
+        let right = self.haystack.len();
+        assert!(left <= right);
 
-        for i in 0 .. limit {
+        for i in 0 .. right - left {
             if let Some(max) = max {
-                if i >= max {
+                if i > max {
                     break;
                 }
             }
@@ -175,8 +177,15 @@ impl<'a, E: Env> Matcher<'a, E> {
                 good = true;
             }
 
+            let right = self.right;
+
             if !self.check_leaf(leaf) {
-                return false;
+                if good {
+                    self.right = right;
+                    return true;
+                } else {
+                    return false;
+                }
             }
         }
 
