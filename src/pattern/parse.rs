@@ -33,6 +33,7 @@ pub enum Leaf {
     ClassDot,
     ClassDigit,
     ClassWord,
+    ClassSpace,
     ClassCustom {
         invert: bool,
         members: HashSet<char>,
@@ -194,12 +195,15 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                 '\\' => {
                     let c = self.consume()?;
 
-                    if c == end || "(|).$".contains(c) {
+                    if c == end || "|()[]{}.^$?*+\\".contains(c) {
                         branch.putchar(c);
-                    } else if c == 'd' {
-                        branch.push(Leaf::ClassDigit);
                     } else {
-                        return Err(Error::InvalidRegex);
+                        branch.push(match c {
+                            'd' => Leaf::ClassDigit,
+                            'w' => Leaf::ClassWord,
+                            's' => Leaf::ClassSpace,
+                            _ => return Err(Error::InvalidRegex),
+                        });
                     }
                 },
 
@@ -239,6 +243,10 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
 
                             let prev = prev as u32;
                             let next = next as u32;
+
+                            if prev >= next {
+                                return Err(Error::InvalidRegex)?;
+                            }
 
                             for ch in prev .. next {
                                 use std::char::from_u32;
