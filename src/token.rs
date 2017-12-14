@@ -187,11 +187,14 @@ impl<'a> Iterator for Tokenizer<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(s) = self.lookahead() {
             if s == '#' {
-                while let Some(n) = self.getc() {
+                loop {
+                    let n = self.getc()?;
                     if n == '\n' {
-                        return Some(Ok(Token::EOL));
+                        break;
                     }
                 }
+
+                break;
             } else if s.is_whitespace() {
                 self.getc();
                 continue;

@@ -5,3 +5,5 @@ assert_eq "nil", str(returns_nil());
 sub returns_nil() {
     # Empty
 }
+
+# Comment after function
