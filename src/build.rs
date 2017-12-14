@@ -90,25 +90,31 @@ impl Module {
             arg.len() as Int
         }))?;
 
-        std.def_native("split", AtLeast(1), |args| Ok({
-            use pattern::*;
+        std.def_native("split", AtLeast(1), |_args| {
+            //use pattern::*;
 
-            let mut args = args.into_iter();
-            let text = Str::extract(args.next().unwrap())?;
-            let pat = match args.next() {
-                Some(pat) => Pattern::extract(pat)?,
-                None => Pattern::Find(" ".into())
-            };
+            //let mut args = args.into_iter();
+            //let text = Str::extract(args.next().unwrap())?;
+            //let pat = match args.next() {
+            //    Some(pat) => Pattern::extract(pat)?,
+            //    None => Pattern::Find(" ".into())
+            //};
 
-            match pat {
-                Pattern::Find(pat) => {
-                    let pat: &str = pat.as_ref();
-                    Value::from_iter(text.split(pat).map(|s| {
-                        Str::from(s)
-                    }))
-                }
-            }
-        }))?;
+            //match pat {
+            //    Pattern::Find(pat) => {
+            //        let pat: &str = pat.as_ref();
+            //        Value::from_iter(text.split(pat).map(|s| {
+            //            Str::from(s)
+            //        }))
+            //    }
+            //}
+
+            if false { return Ok(()) }
+
+            return Err(Error::UnimplementedFeature {
+                feature: "pattern matching",
+            });
+        })?;
 
         std.def_native("new", AtLeast(0), |args| Ok({
             if !args.is_empty() {

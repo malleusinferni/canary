@@ -1,16 +1,17 @@
-use value::*;
+pub mod parse;
+
+//use value::*;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Pattern {
-    Find(Str),
+    Deferred(parse::Ast),
 }
 
 impl Pattern {
-    pub fn matches(self, haystack: &str) -> bool {
+    pub fn matches(self, _haystack: &str) -> bool {
         match self {
-            Pattern::Find(needle) => {
-                let needle: &str = needle.as_ref();
-                haystack.contains(needle)
+            Pattern::Deferred(_ast) => {
+                unimplemented!()
             }
         }
     }

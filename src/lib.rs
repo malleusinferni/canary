@@ -64,6 +64,9 @@ pub enum Error {
     #[fail(display="token cannot start with {:?}", ch)]
     UnimplementedToken { ch: char, },
 
+    #[fail(display="feature not implemented: {}", feature)]
+    UnimplementedFeature { feature: &'static str },
+
     #[fail(display="illegal lvalue expression")]
     IllegalLvalue,
 

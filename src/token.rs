@@ -82,7 +82,15 @@ impl<'a> Tokenizer<'a> {
         Spanned { inner: self }
     }
 
-    fn word(&mut self) -> Option<Result<Ident>> {
+    pub fn lookahead(&mut self) -> Option<char> {
+        self.input.peek().cloned()
+    }
+
+    pub fn getc(&mut self) -> Option<char> {
+        self.input.next()
+    }
+
+    pub fn word(&mut self) -> Option<Result<Ident>> {
         self.input.next().map(|c| {
             self.endword(c)
         })
@@ -103,38 +111,6 @@ impl<'a> Tokenizer<'a> {
         }
 
         self.strings.intern(word)
-    }
-
-    fn pattern(&mut self) -> Result<Pattern> {
-        let err = || Error::InvalidRegex;
-
-        let open = self.input.next().ok_or(err())?;
-
-        let close = match open {
-            '(' => ')',
-            '[' => ']',
-            '{' => '}',
-            '<' => '>',
-            '/' => '/',
-            '|' => '|',
-            '"' => '"',
-            _ => return Err(err()),
-        };
-
-        let mut chars = String::new();
-
-        while let Some(ch) = self.input.next() {
-            if ch == close {
-                let text = self.strings.intern(chars)?;
-                return Ok(Pattern::Find(text));
-            } else if ch == '\n' {
-                return Err(err());
-            } else {
-                chars.push(ch);
-            }
-        }
-
-        Err(err())
     }
 
     fn interp(&mut self) -> Result<Token> {
@@ -315,7 +291,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                     "and" => Token::AND,
                     "or" => Token::OR,
 
-                    "re" => return Some(self.pattern().map(|pat| {
+                    "re" => return Some(Pattern::parse(self).map(|pat| {
                         Token::PAT(pat)
                     })),
 
@@ -430,5 +406,22 @@ fn string() {
     for string in strings {
         let t = Tokenizer::new(string);
         t.collect::<Result<Vec<_>, _>>().unwrap();
+    }
+}
+
+#[test]
+fn pattern() {
+    let patterns = &[
+        "re/(hello|world)/",
+        "re/(hello|world)/i",
+        "re/^hello[ ]world$/",
+    ];
+
+    for src in patterns {
+        let tokens = Tokenizer::new(src)
+            .collect::<Result<Vec<_>>>()
+            .unwrap();
+
+        assert_eq!(tokens.len(), 1);
     }
 }
