@@ -62,17 +62,27 @@ impl<'a> Iterator for Spanned<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|result| match result {
-            Ok(t) => Ok((self.inner.left, t, self.inner.right)),
+            Ok(t) => {
+                Ok((self.inner.left, t, self.inner.right))
+            },
 
-            Err(err) => Err(Error::WithContext {
-                cause: err.into(),
-                context: format!("position {}", self.inner.left),
-            })
+            Err(mut err) => {
+                if let Some((line, col)) = self.inner.line_and_col() {
+                    err = Error::WithPosition {
+                        cause: err.into(),
+                        line: line,
+                        column: col,
+                    };
+                }
+
+                Err(err)
+            },
         })
     }
 }
 
 pub struct Tokenizer<'a> {
+    src: &'a str,
     input: Peekable<Chars<'a>>,
     strings: Strings,
     left: usize,
@@ -82,6 +92,7 @@ pub struct Tokenizer<'a> {
 impl<'a> Tokenizer<'a> {
     pub fn new(src: &'a str) -> Self {
         Tokenizer {
+            src,
             input: src.chars().peekable(),
             strings: Strings::new(),
             left: 0,
@@ -91,6 +102,30 @@ impl<'a> Tokenizer<'a> {
 
     pub fn spanned(self) -> Spanned<'a> {
         Spanned { inner: self }
+    }
+
+    pub fn line_and_col(&self) -> Option<(usize, usize)> {
+        if self.left >= self.src.len() {
+            return None;
+        }
+
+        let mut line = 0;
+        let mut col = 0;
+
+        for (i, c) in self.src.char_indices() {
+            if i > self.left {
+                break;
+            }
+
+            if c == '\n' {
+                line += 1;
+                col = 0;
+            } else {
+                col += 1;
+            }
+        }
+
+        Some((line, col))
     }
 
     pub fn lookahead(&mut self) -> Option<char> {

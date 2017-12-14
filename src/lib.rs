@@ -133,6 +133,13 @@ pub enum Error {
         cause: Box<Error>,
     },
 
+    #[fail(display="line {}, column {}: {}", line, column, cause)]
+    WithPosition {
+        line: usize,
+        column: usize,
+        cause: Box<Error>,
+    },
+
     #[fail(display="{}", parse)]
     Parse {
         parse: Box<lalrpop_util::ParseError<usize, Token, Error>>,
