@@ -1,16 +1,17 @@
 pub mod parse;
+pub mod compile;
 
-//use value::*;
+use ident::*;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Pattern {
-    Deferred(parse::Ast),
+    Resolved(parse::Ast<usize>),
 }
 
 impl Pattern {
     pub fn matches(self, _haystack: &str) -> bool {
         match self {
-            Pattern::Deferred(_ast) => {
+            Pattern::Resolved(_ast) => {
                 unimplemented!()
             }
         }

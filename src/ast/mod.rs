@@ -1,6 +1,5 @@
 use super::*;
 use value::*;
-use pattern::*;
 
 mod grammar {
     include!(concat!(env!("OUT_DIR"), "/ast/grammar.rs"));
@@ -114,7 +113,7 @@ pub enum Literal {
     Int(Int),
     Str(Str),
     Ident(Ident),
-    Pattern(Pattern),
+    Pattern(pattern::parse::Ast<Ident>),
     Nil,
 }
 

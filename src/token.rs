@@ -1,7 +1,7 @@
 use super::*;
 use ident::*;
 use value::*;
-use pattern::*;
+use pattern::{self, Pattern};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
@@ -13,7 +13,7 @@ pub enum Token {
     SYM(Ident),
     INT(Int),
     STR(Vec<Interp>),
-    PAT(Pattern),
+    PAT(pattern::parse::Ast<Ident>),
     LPAR,
     RPAR,
     LSQB,

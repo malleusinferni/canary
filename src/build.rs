@@ -466,7 +466,14 @@ impl<'a> Assembler<'a> {
                 self.emit(Op::PUSHS { string });
             },
 
-            Literal::Pattern(pat) => {
+            Literal::Pattern(ast) => {
+                use pattern::Pattern;
+
+                let ast = ast.map_locals(|local| {
+                    self.lookup(local.clone())
+                })?;
+
+                let pat = Pattern::Resolved(ast);
                 self.emit(Op::PAT { pat });
             },
 

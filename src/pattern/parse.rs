@@ -9,24 +9,24 @@ use ident::*;
 use token::Tokenizer;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Ast {
-    pub root: Group,
+pub struct Ast<Local=Ident> {
+    pub root: Group<Local>,
     pub ignore_case: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Group {
-    pub branches: Vec<Branch>,
+pub struct Group<Local=Ident> {
+    pub branches: Vec<Branch<Local>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Branch {
-    pub leaves: Vec<Leaf>,
+pub struct Branch<Local=Ident> {
+    pub leaves: Vec<Leaf<Local>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Leaf {
-    Group(Group),
+pub enum Leaf<Local=Ident> {
+    Group(Group<Local>),
     Raw(String),
     AnchorStart,
     AnchorEnd,
@@ -38,9 +38,9 @@ pub enum Leaf {
         invert: bool,
         members: HashSet<char>,
     },
-    Repeat(Box<Leaf>, Repeat),
+    Repeat(Box<Leaf<Local>>, Repeat),
     Local {
-        name: Ident,
+        name: Local,
     },
     Global {
         name: Ident,
@@ -56,7 +56,7 @@ pub enum Repeat {
 }
 
 impl Pattern {
-    pub fn parse(stream: &mut Tokenizer) -> Result<Self> {
+    pub fn parse(stream: &mut Tokenizer) -> Result<Ast<Ident>> {
         let root ={
             let mut parser = Parser { stream };
 
@@ -91,10 +91,7 @@ impl Pattern {
             stream.getc();
         }
 
-        Ok(Pattern::Deferred(Ast {
-            root,
-            ignore_case,
-        }))
+        Ok(Ast { root, ignore_case, })
     }
 }
 
@@ -308,5 +305,84 @@ impl Branch {
     fn take(&mut self) -> Self {
         let leaves = self.leaves.drain(..).collect();
         Branch { leaves }
+    }
+}
+
+fn magic(ch: char) -> bool {
+    "()[]{}|.?+*/^$\\".contains(ch)
+}
+
+mod display {
+    use super::*;
+    use std::fmt::{Display, Formatter, Result};
+
+    impl<Local: Display> Display for Ast<Local> {
+        fn fmt(&self, f: &mut Formatter) -> Result {
+            let flags = if self.ignore_case { "i" } else { "" };
+            write!(f, "re/{}/{}", &self.root, flags)
+        }
+    }
+
+    impl<Local: Display> Display for Group<Local> {
+        fn fmt(&self, f: &mut Formatter) -> Result {
+            let branches = self.branches.iter().map(|branch| {
+                let mut buf = String::new();
+
+                for leaf in &branch.leaves {
+                    buf += &leaf.to_string();
+                }
+
+                buf
+            }).collect::<Vec<String>>();
+
+            write!(f, "{}", branches.join("|"))
+        }
+    }
+
+    impl<Local: Display> Display for Leaf<Local> {
+        fn fmt(&self, f: &mut Formatter) -> Result {
+            match *self {
+                Leaf::Group(ref group) => write!(f, "({})", group),
+
+                Leaf::Raw(ref string) => {
+                    for ch in string.chars() {
+                        if magic(ch) { write!(f, "\\")?; }
+                        write!(f, "{}", ch)?;
+                    }
+
+                    Ok(())
+                },
+
+                Leaf::AnchorStart => write!(f, "^"),
+                Leaf::AnchorEnd => write!(f, "$"),
+
+                Leaf::ClassDot => write!(f, "."),
+                Leaf::ClassDigit => write!(f, "\\d"),
+                Leaf::ClassSpace => write!(f, "\\s"),
+                Leaf::ClassWord => write!(f, "\\w"),
+                Leaf::ClassCustom { ref members, invert } => {
+                    let start = if invert { "^" } else { "" };
+                    let members = members.iter().collect::<String>();
+                    write!(f, "[{}{}]", start, members)
+                },
+
+                Leaf::Repeat(ref leaf, kind) => {
+                    write!(f, "{}{}", leaf, match kind {
+                        Repeat::OneOrZero => "?",
+                        Repeat::OneOrMore => "+",
+                        Repeat::ZeroOrMore => "*",
+                        Repeat::Count(_) => "{...}",
+                    })
+                },
+
+                Leaf::Local { ref name } => {
+                    write!(f, "${}", name)
+                },
+
+                Leaf::Global { ref name } => {
+                    write!(f, "%{}", name)
+                },
+            }
+        }
     }
 }

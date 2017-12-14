@@ -217,7 +217,7 @@ extern {
         var => Token::VAR(<Ident>),
         sym => Token::SYM(<Ident>),
         string => Token::STR(<Vec<Interp>>),
-        pattern => Token::PAT(<Pattern>),
+        pattern => Token::PAT(<pattern::parse::Ast<Ident>>),
     }
 }
 
