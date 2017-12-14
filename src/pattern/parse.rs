@@ -51,6 +51,7 @@ pub enum Repeat {
     OneOrZero,
     ZeroOrMore,
     OneOrMore,
+    Count(usize),
 }
 
 impl Pattern {
@@ -134,7 +135,29 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                     branch.push(self.parse_class()?);
                 },
 
-                ']' | ')' => {
+                '{' => {
+                    let mut digits = String::new();
+
+                    loop {
+                        let d = self.consume()?;
+
+                        if d.is_digit(10) {
+                            digits.push(d);
+                        } else if d == '}' {
+                            break;
+                        } else {
+                            return Err(Error::InvalidRegex);
+                        }
+                    }
+
+                    let count = digits.parse::<usize>().map_err(|_| {
+                        Error::InvalidRegex
+                    })?;
+
+                    branch.repeat(Repeat::Count(count))?;
+                },
+
+                '}' | ']' | ')' => {
                     // Unbalanced delimiters
                     return Err(Error::InvalidRegex);
                 },
