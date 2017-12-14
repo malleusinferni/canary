@@ -39,6 +39,10 @@ struct Matcher<'a, E: 'a + Env> {
     right: usize,
 }
 
+struct Checkpoint {
+    right: usize,
+}
+
 impl<'a, E: Env> Matcher<'a, E> {
     fn check_root(&mut self, root: &Group<usize>) -> bool {
         let haystack = self.haystack;
@@ -46,8 +50,6 @@ impl<'a, E: Env> Matcher<'a, E> {
         for (left, _) in haystack.char_indices() {
             self.haystack = &haystack[left ..];
             self.right = 0;
-
-            //println!("Checking {:?}...", self.haystack);
 
             if self.check_group(root) {
                 return true;
@@ -57,9 +59,18 @@ impl<'a, E: Env> Matcher<'a, E> {
         false
     }
 
+    fn mark(&self) -> Checkpoint {
+        let Matcher { right, .. } = *self;
+        Checkpoint { right }
+    }
+
+    fn recall(&mut self, here: &Checkpoint) {
+        let Checkpoint { right } = *here;
+        self.right = right;
+    }
+
     fn get_char(&mut self) -> Option<char> {
         self.haystack[self.right ..].chars().next().map(|ch| {
-            //println!("Got char {}", ch);
             self.right += ch.len_utf8();
             ch
         })
@@ -87,14 +98,13 @@ impl<'a, E: Env> Matcher<'a, E> {
     }
 
     fn check_group(&mut self, group: &Group<usize>) -> bool {
-        let Matcher { right, .. } = *self;
+        let here = self.mark();
 
         for branch in group.branches.iter() {
             if self.check_branch(branch) {
                 return true;
             } else {
-                // Backtrack
-                self.right = right;
+                self.recall(&here);
             }
         }
 
@@ -177,11 +187,11 @@ impl<'a, E: Env> Matcher<'a, E> {
                 good = true;
             }
 
-            let right = self.right;
+            let here = self.mark();
 
             if !self.check_leaf(leaf) {
                 if good {
-                    self.right = right;
+                    self.recall(&here);
                     return true;
                 } else {
                     return false;
