@@ -61,9 +61,14 @@ impl<'a> Iterator for Spanned<'a> {
     type Item = Result<(usize, Token, usize)>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|r| r.map(|t| {
-            (self.inner.left, t, self.inner.right)
-        }))
+        self.inner.next().map(|result| match result {
+            Ok(t) => Ok((self.inner.left, t, self.inner.right)),
+
+            Err(err) => Err(Error::WithContext {
+                cause: err.into(),
+                context: format!("position {}", self.inner.left),
+            })
+        })
     }
 }
 
@@ -179,33 +184,9 @@ impl<'a> Tokenizer<'a> {
             _ => return Err(Error::InvalidEscape),
         })
     }
-}
 
-impl<'a> Iterator for Tokenizer<'a> {
-    type Item = Result<Token>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(s) = self.lookahead() {
-            if s == '#' {
-                loop {
-                    let n = self.getc()?;
-                    if n == '\n' {
-                        break;
-                    }
-                }
-
-                break;
-            } else if s.is_whitespace() {
-                self.getc();
-                continue;
-            } else {
-                break;
-            }
-        }
-
-        let first = self.getc()?;
-
-        Some(Ok(match first {
+    fn token(&mut self, first: char) -> Result<Token> {
+        Ok(match first {
             '(' => Token::LPAR,
             ')' => Token::RPAR,
             '[' => Token::LSQB,
@@ -229,70 +210,36 @@ impl<'a> Iterator for Tokenizer<'a> {
                 Token::EQUAL
             },
 
-            '"' => {
-                return Some(self.interp());
-            },
+            '"' => self.interp()?,
 
             ':' => match self.lookahead() {
                 Some(w) if w.is_alphabetic() => {
-                    self.getc();
-                    let mut word = String::new();
-                    word.push(w);
-
-                    while let Some(w) = self.lookahead() {
-                        if !in_ident(w) { break; }
-                        word.push(w);
-                        self.getc();
-                    }
-
-                    Token::SYM(self.strings.intern(word).unwrap())
+                    Token::SYM(self.word().ok_or(Error::Eof)??)
                 },
 
                 _ => Token::COLON,
             },
 
             '$' => {
-                let w = self.getc()?;
+                let w = self.getc().ok_or(Error::Eof)?;
                 let mut word = String::new();
                 word.push(w);
 
                 if w.is_digit(10) {
                     Token::GROUP(word.parse::<u8>().unwrap())
-                } else if !w.is_alphabetic() {
-                    unimplemented!("Special vars");
+                } else if w.is_alphabetic() {
+                    Token::VAR(self.endword(w)?)
                 } else {
-                    while let Some(w) = self.lookahead() {
-                        if !in_ident(w) { break; }
-                        word.push(w);
-                        self.getc();
-                    }
-
-                    Token::VAR(self.strings.intern(word).unwrap())
+                    return Err(Error::UnimplementedToken { ch: w });
                 }
             },
 
             '%' => {
-                let mut word = String::new();
-                let w = self.getc()?;
-
-                word.push(w);
-                while let Some(w) = self.lookahead() {
-                    if !in_ident(w) { break; }
-                    word.push(w);
-                    self.getc();
-                }
-
-                Token::GLOBAL(self.strings.intern(word).unwrap())
+                Token::GLOBAL(self.word().ok_or(Error::Eof)??)
             },
 
             w if w.is_alphabetic() => {
-                let mut word = String::new();
-                word.push(w);
-                while let Some(w) = self.lookahead() {
-                    if !in_ident(w) { break; }
-                    word.push(w);
-                    self.getc();
-                }
+                let word = self.endword(w)?;
 
                 match word.as_ref() {
                     "sub" => Token::DEF,
@@ -307,16 +254,15 @@ impl<'a> Iterator for Tokenizer<'a> {
                     "and" => Token::AND,
                     "or" => Token::OR,
 
-                    "re" => return Some(Pattern::parse(self).map(|pat| {
+                    "re" => return Pattern::parse(self).map(|pat| {
                         Token::PAT(pat)
-                    })),
+                    }),
 
                     _ => {
-                        let ident = self.strings.intern(word).unwrap();
                         if self.lookahead() == Some('(') {
-                            Token::NEARWORD(ident)
+                            Token::NEARWORD(word)
                         } else {
-                            Token::FARWORD(ident)
+                            Token::FARWORD(word)
                         }
                     },
                 }
@@ -335,9 +281,30 @@ impl<'a> Iterator for Tokenizer<'a> {
             },
 
             other => {
-                return Some(Err(Error::UnimplementedToken { ch: other }));
+                return Err(Error::UnimplementedToken { ch: other });
             },
-        }))
+        })
+    }
+}
+
+impl<'a> Iterator for Tokenizer<'a> {
+    type Item = Result<Token>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(s) = self.lookahead() {
+            if s == '#' {
+                while self.getc()? != '\n' {
+                    continue;
+                }
+            } else if s.is_whitespace() {
+                self.getc();
+                continue;
+            } else {
+                break;
+            }
+        }
+
+        self.getc().map(|first| self.token(first))
     }
 }
 
@@ -387,6 +354,23 @@ impl fmt::Display for Token {
             Token::LCBR => write!(f, "{{"),
             Token::RCBR => write!(f, "}}"),
         }
+    }
+}
+
+#[test]
+fn various() {
+    let sources = &[
+        "$foo $1 $9 $0 $ok_what_now $UPPERCASE",
+        "1 23 456 7890",
+        " spaces # Comment at end\n",
+    ];
+
+    for src in sources {
+        Tokenizer::new(src).collect::<Result<Vec<_>>>().unwrap_or_else(|err| {
+            println!("Failed to tokenize: {}", src);
+            println!("Error: {}", err);
+            panic!("Test failed");
+        });
     }
 }
 

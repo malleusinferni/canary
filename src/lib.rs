@@ -61,6 +61,9 @@ pub enum Error {
     #[fail(display="malformed string")]
     MalformedString,
 
+    #[fail(display="unexpected end of file")]
+    Eof,
+
     #[fail(display="token cannot start with {:?}", ch)]
     UnimplementedToken { ch: char, },
 
