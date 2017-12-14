@@ -28,22 +28,27 @@ pub struct Branch<Local=Ident> {
 pub enum Leaf<Local=Ident> {
     Group(Group<Local>),
     Raw(String),
+    Class(Class),
     AnchorStart,
     AnchorEnd,
-    ClassDot,
-    ClassDigit,
-    ClassWord,
-    ClassSpace,
-    ClassCustom {
-        invert: bool,
-        members: HashSet<char>,
-    },
     Repeat(Box<Leaf<Local>>, Repeat),
     Local {
         name: Local,
     },
     Global {
         name: Ident,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Class {
+    Dot,
+    Digit,
+    Word,
+    Space,
+    Custom {
+        invert: bool,
+        members: HashSet<char>,
     },
 }
 
@@ -130,7 +135,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                 },
 
                 '[' => {
-                    branch.push(self.parse_class()?);
+                    branch.push(self.parse_class().map(Leaf::Class)?);
                 },
 
                 '{' => {
@@ -183,7 +188,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                 },
 
                 '.' => {
-                    branch.push(Leaf::ClassDot);
+                    branch.push(Leaf::Class(Class::Dot));
                 },
 
                 '+' => {
@@ -204,12 +209,12 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                     if c == end || "|()[]{}.^$?*+\\".contains(c) {
                         branch.putchar(c);
                     } else {
-                        branch.push(match c {
-                            'd' => Leaf::ClassDigit,
-                            'w' => Leaf::ClassWord,
-                            's' => Leaf::ClassSpace,
+                        branch.push(Leaf::Class(match c {
+                            'd' => Class::Digit,
+                            'w' => Class::Word,
+                            's' => Class::Space,
                             _ => return Err(Error::InvalidRegex),
-                        });
+                        }));
                     }
                 },
 
@@ -224,7 +229,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
         }
     }
 
-    fn parse_class(&mut self) -> Result<Leaf> {
+    fn parse_class(&mut self) -> Result<Class> {
         let mut prev = None;
         let mut invert = false;
         let mut members = HashSet::new();
@@ -278,7 +283,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
             prev = Some(ch);
         }
 
-        Ok(Leaf::ClassCustom { invert, members })
+        Ok(Class::Custom { invert, members })
     }
 
     fn parse_ident(&mut self) -> Result<Ident> {
@@ -365,15 +370,7 @@ mod display {
                 Leaf::AnchorStart => write!(f, "^"),
                 Leaf::AnchorEnd => write!(f, "$"),
 
-                Leaf::ClassDot => write!(f, "."),
-                Leaf::ClassDigit => write!(f, "\\d"),
-                Leaf::ClassSpace => write!(f, "\\s"),
-                Leaf::ClassWord => write!(f, "\\w"),
-                Leaf::ClassCustom { ref members, invert } => {
-                    let start = if invert { "^" } else { "" };
-                    let members = members.iter().collect::<String>();
-                    write!(f, "[{}{}]", start, members)
-                },
+                Leaf::Class(ref class) => class.fmt(f),
 
                 Leaf::Repeat(ref leaf, kind) => {
                     write!(f, "{}{}", leaf, match kind {
@@ -390,6 +387,25 @@ mod display {
 
                 Leaf::Global { ref name } => {
                     write!(f, "%{}", name)
+                },
+            }
+        }
+    }
+
+    impl Display for Class {
+        fn fmt(&self, f: &mut Formatter) -> Result {
+            match *self {
+                Class::Dot => write!(f, "."),
+                Class::Digit => write!(f, "\\d"),
+                Class::Space => write!(f, "\\s"),
+                Class::Word => write!(f, "\\w"),
+                Class::Custom { ref members, invert } => {
+                    let members = members.iter().collect::<String>();
+                    if invert {
+                        write!(f, "[^{}]", members)
+                    } else {
+                        write!(f, "[{}]", members)
+                    }
                 },
             }
         }

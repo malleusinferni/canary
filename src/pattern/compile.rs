@@ -57,18 +57,10 @@ impl<In> Leaf<In> {
 
             Leaf::Raw(ref string) => Leaf::Raw(string.clone()),
 
-            Leaf::ClassCustom { invert, ref members } => {
-                let members = members.clone();
-                Leaf::ClassCustom { invert, members }
-            },
+            Leaf::Class(ref class) => Leaf::Class(class.clone()),
 
             Leaf::AnchorStart => Leaf::AnchorStart,
             Leaf::AnchorEnd => Leaf::AnchorEnd,
-
-            Leaf::ClassDot => Leaf::ClassDot,
-            Leaf::ClassDigit => Leaf::ClassDigit,
-            Leaf::ClassWord => Leaf::ClassWord,
-            Leaf::ClassSpace => Leaf::ClassSpace,
         })
     }
 }

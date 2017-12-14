@@ -143,7 +143,7 @@ impl Interpreter {
                 let rhs = self.pop::<Value>()?;
                 let lhs = self.pop::<Value>()?;
 
-                self.push(match op {
+                let result = match op {
                     Binop::ADD => lhs + rhs,
                     Binop::SUB => lhs - rhs,
                     Binop::DIV => lhs / rhs,
@@ -154,11 +154,11 @@ impl Interpreter {
                     Binop::NE => Ok((lhs != rhs).into()),
 
                     Binop::MATCH => {
-                        let rhs = Pattern::extract(rhs)?;
-                        let lhs = Str::extract(lhs)?;
-                        Ok(rhs.matches(&lhs).into())
+                        self.match_pattern(rhs, lhs)
                     },
-                }?);
+                }?;
+
+                self.push(result);
             },
 
             Op::INS => {
@@ -279,6 +279,57 @@ impl Interpreter {
             .ok_or(Error::ListTooLong)?;
 
         Ok(self.frame.locals.drain(start ..).collect())
+    }
+
+    fn match_pattern(&mut self, pat: Value, text: Value) -> Result<Value> {
+        let pat = Pattern::extract(pat)?;
+        let text = Str::extract(text)?;
+
+        use std::collections::HashMap;
+
+        struct Dict<'e> {
+            inner: &'e mut Interpreter,
+            locals: HashMap<usize, Str>,
+            globals: HashMap<Ident, Option<Str>>,
+        }
+
+        impl<'e> Env for Dict<'e> {
+            fn read_local(&mut self, name: usize) -> Str {
+                if !self.locals.contains_key(&name) {
+                    let value = self.inner.read::<Value>(name)
+                        .unwrap().to_string();
+
+                    let value = self.inner.strings.intern(&value).unwrap();
+                    self.locals.insert(name, value);
+                }
+
+                self.locals.get(&name).unwrap().clone()
+            }
+
+            fn read_global(&mut self, name: &Ident) -> Option<Str> {
+                if !self.globals.contains_key(name) {
+                    let Dict { ref mut inner, ref mut globals, .. } = *self;
+
+                    let dict = inner.globals.clone();
+
+                    let value = dict.borrow().get(name).cloned().map(|val| {
+                        inner.strings.intern(val.to_string()).unwrap()
+                    });
+
+                    globals.insert(name.clone(), value);
+                }
+
+                self.globals.get(name).unwrap().clone()
+            }
+        }
+
+        let mut env = Dict {
+            inner: self,
+            locals: HashMap::new(),
+            globals: HashMap::new(),
+        };
+
+        Ok(pat.matches(&mut env, text.as_ref()).into())
     }
 }
 
