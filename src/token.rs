@@ -213,9 +213,11 @@ impl<'a> Tokenizer<'a> {
         Ok(match self.getc().ok_or(Error::MalformedString)? {
             '$' => '$',
             '%' => '%',
+            '"' => '"',
             'n' => '\n',
             'r' => '\r',
             't' => '\t',
+            '\\' => '\\',
             _ => return Err(Error::InvalidEscape),
         })
     }
