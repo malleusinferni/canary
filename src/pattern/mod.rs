@@ -11,14 +11,22 @@ pub enum Pattern {
     Resolved(Ast<usize>),
 }
 
+pub type GroupNumber = u8;
+pub type Captures = Vec<(GroupNumber, usize, usize)>;
+
 impl Pattern {
-    pub fn matches<E: Env>(self, env: &mut E, haystack: &str) -> bool {
+    pub fn matches<E>(self, env: &mut E, haystack: &str) -> Option<Captures>
+        where E: Env
+    {
         let ast = match self { Pattern::Resolved(ast) => { ast }, };
         let Ast { ref root, ignore_case } = ast;
 
-        let mut matcher = Matcher {
+        let captures = vec![];
+
+        let matcher = Matcher {
             env,
             haystack,
+            captures,
             ignore_case,
             right: 0,
         };
@@ -35,16 +43,18 @@ pub trait Env {
 struct Matcher<'a, E: 'a + Env> {
     env: &'a mut E,
     haystack: &'a str,
+    captures: Vec<(GroupNumber, usize, usize)>,
     ignore_case: bool,
     right: usize,
 }
 
 struct Checkpoint {
     right: usize,
+    captures: usize,
 }
 
 impl<'a, E: Env> Matcher<'a, E> {
-    fn check_root(&mut self, root: &Group<usize>) -> bool {
+    fn check_root(mut self, root: &Group<usize>) -> Option<Captures> {
         let haystack = self.haystack;
 
         for (left, _) in haystack.char_indices() {
@@ -52,21 +62,31 @@ impl<'a, E: Env> Matcher<'a, E> {
             self.right = 0;
 
             if self.check_group(root) {
-                return true;
+                return Some(self.captures);
             }
         }
 
-        false
+        None
     }
 
     fn mark(&self) -> Checkpoint {
         let Matcher { right, .. } = *self;
-        Checkpoint { right }
+        let captures = self.captures.len();
+        Checkpoint { right, captures }
     }
 
     fn recall(&mut self, here: &Checkpoint) {
-        let Checkpoint { right } = *here;
+        let Checkpoint { right, captures } = *here;
         self.right = right;
+        self.captures.drain(captures ..);
+    }
+
+    fn capture(&mut self, num: GroupNumber, here: Checkpoint) {
+        if self.captures.iter().any(|&(n, _, _)| n == num) {
+            return;
+        }
+
+        self.captures.push((num, here.right, self.right));
     }
 
     fn get_char(&mut self) -> Option<char> {
@@ -102,6 +122,7 @@ impl<'a, E: Env> Matcher<'a, E> {
 
         for branch in group.branches.iter() {
             if self.check_branch(branch) {
+                self.capture(group.number, here);
                 return true;
             } else {
                 self.recall(&here);

@@ -27,7 +27,10 @@ assert $haystack =~ re/^this is a test$/;
 print "Case-insensitive";
 assert $haystack =~ re/THIS IS A TEST/i;
 
-if 0 {
-    # Should parse, but won't succeed... yet
-    print $1;
-}
+print "Numbered captures";
+$haystack =~ re/(this) (is) (a) (test)/;
+assert $0 eq $haystack;
+assert $1 eq "this";
+assert $2 eq "is";
+assert $3 eq "a";
+assert $4 eq "test";

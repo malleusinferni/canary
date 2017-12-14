@@ -16,6 +16,7 @@ pub struct Ast<Local=Ident> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Group<Local=Ident> {
+    pub number: u8,
     pub branches: Vec<Branch<Local>>,
 }
 
@@ -62,8 +63,9 @@ pub enum Repeat {
 
 impl Pattern {
     pub fn parse(stream: &mut Tokenizer) -> Result<Ast<Ident>> {
-        let root ={
-            let mut parser = Parser { stream };
+        let root = {
+            let group_number = 0;
+            let mut parser = Parser { stream, group_number };
 
             let open = parser.consume()?;
 
@@ -102,6 +104,7 @@ impl Pattern {
 
 struct Parser<'a, 'b : 'a> {
     stream: &'a mut Tokenizer<'b>,
+    group_number: u8,
 }
 
 impl<'a, 'b : 'a> Parser<'a, 'b> {
@@ -114,6 +117,9 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
     }
 
     fn parse_group(&mut self, end: char) -> Result<Group> {
+        let number = self.group_number;
+        self.group_number += 1;
+
         let mut branches = vec![];
         let mut branch = Branch { leaves: vec![] };
 
@@ -122,7 +128,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
 
             if ch == end {
                 branches.push(branch);
-                return Ok(Group { branches });
+                return Ok(Group { number, branches });
             }
 
             match ch {

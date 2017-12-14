@@ -25,13 +25,14 @@ impl<In> Group<In> {
     fn map<Out, F>(&self, f: &F) -> Result<Group<Out>>
         where F: Fn(&In) -> Result<Out>
     {
+        let number = self.number;
         let branches = self.branches.iter().map(|branch| {
             let leaves = branch.leaves.iter().map(|leaf| {
                 leaf.map(f)
             }).collect::<Result<Vec<_>>>()?;
             Ok(Branch { leaves })
         }).collect::<Result<Vec<_>>>()?;
-        Ok(Group { branches })
+        Ok(Group { branches, number })
     }
 }
 

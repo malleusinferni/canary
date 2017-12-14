@@ -1,4 +1,5 @@
 use std::iter::FromIterator;
+use std::collections::BTreeMap;
 
 use super::*;
 use value::*;
@@ -17,7 +18,7 @@ struct Frame {
     code: InterpretedFn,
     mark: usize,
     locals: Vec<Value>,
-    groups: Vec<Value>,
+    groups: BTreeMap<GroupNumber, Str>,
     pc: usize,
 }
 
@@ -27,7 +28,7 @@ impl Module {
             frame: Frame {
                 code: self.begin.clone(),
                 locals: vec![],
-                groups: vec![],
+                groups: BTreeMap::new(),
                 mark: 0,
                 pc: 0,
             },
@@ -108,7 +109,7 @@ impl Interpreter {
             },
 
             Op::GROUP { num } => {
-                let group = self.frame.groups.get(num as usize).cloned()
+                let group = self.frame.groups.get(&num).cloned()
                     .ok_or(Error::NoSuchGroup { num })?;
                 self.push(group);
             }
@@ -227,7 +228,7 @@ impl Interpreter {
                 use std::mem::swap;
 
                 self.saved.push(Frame {
-                    groups: vec![],
+                    groups: BTreeMap::new(),
                     mark: argv.len(),
                     locals: argv,
                     pc: 0,
@@ -323,13 +324,30 @@ impl Interpreter {
             }
         }
 
-        let mut env = Dict {
-            inner: self,
-            locals: HashMap::new(),
-            globals: HashMap::new(),
+        let text = text.as_ref();
+
+        let captures = {
+            let mut env = Dict {
+                inner: self,
+                locals: HashMap::new(),
+                globals: HashMap::new(),
+            };
+
+            pat.matches(&mut env, text)
         };
 
-        Ok(pat.matches(&mut env, text.as_ref()).into())
+        if let Some(captures) = captures {
+            let groups = &mut self.frame.groups;
+
+            for (id, start, end) in captures.into_iter() {
+                let text = Str::from(&text[start .. end]);
+                groups.insert(id, text);
+            }
+
+            Ok(true.into())
+        } else {
+            Ok(false.into())
+        }
     }
 }
 
