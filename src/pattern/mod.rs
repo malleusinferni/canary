@@ -191,36 +191,24 @@ impl<'a, E: Env> Matcher<'a, E> {
             Repeat::Count(n) => (n, Some(n)),
         };
 
-        let mut good = false;
+        let max = max.unwrap_or(self.haystack.len() - self.right);
 
-        let left = self.right;
-        let right = self.haystack.len();
-        assert!(left <= right);
-
-        for i in 0 .. right - left {
-            if let Some(max) = max {
-                if i > max {
-                    break;
-                }
-            }
-
-            if i >= min {
-                good = true;
-            }
-
-            let here = self.mark();
-
+        for _ in 0 .. min {
             if !self.check_leaf(leaf) {
-                if good {
-                    self.recall(&here);
-                    return true;
-                } else {
-                    return false;
-                }
+                return false;
             }
         }
 
-        good
+        for _ in min .. max {
+            let here = self.mark();
+
+            if !self.check_leaf(leaf) {
+                self.recall(&here);
+                return true;
+            }
+        }
+
+        true
     }
 
     fn check_class(&mut self, class: &Class) -> bool {
