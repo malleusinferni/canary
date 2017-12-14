@@ -160,6 +160,10 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                     return Err(Error::InvalidRegex);
                 },
 
+                '^' => {
+                    branch.push(Leaf::AnchorStart);
+                },
+
                 '$' => {
                     let next = self.lookahead()?;
 
@@ -171,6 +175,11 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                     } else {
                         return Err(Error::InvalidRegex);
                     }
+                },
+
+                '%' => {
+                    let name = self.parse_ident()?;
+                    branch.push(Leaf::Global { name });
                 },
 
                 '.' => {
