@@ -9,6 +9,9 @@ assert $haystack =~ re/\w/;
 print "Testing \\w+";
 assert $haystack =~ re/\w+/;
 
+print "Testing \\w{4}";
+assert $haystack =~ re/\w{4}/;
+
 print "Match \"this\" at beginning";
 assert $haystack =~ re/this is/;
 

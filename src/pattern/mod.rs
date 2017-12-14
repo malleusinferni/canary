@@ -47,7 +47,7 @@ impl<'a, E: Env> Matcher<'a, E> {
             self.haystack = &haystack[left ..];
             self.right = 0;
 
-            println!("Checking {:?}...", self.haystack);
+            //println!("Checking {:?}...", self.haystack);
 
             if self.check_group(root) {
                 return true;
@@ -58,7 +58,8 @@ impl<'a, E: Env> Matcher<'a, E> {
     }
 
     fn get_char(&mut self) -> Option<char> {
-        self.haystack.chars().next().map(|ch| {
+        self.haystack[self.right ..].chars().next().map(|ch| {
+            //println!("Got char {}", ch);
             self.right += ch.len_utf8();
             ch
         })
@@ -75,7 +76,9 @@ impl<'a, E: Env> Matcher<'a, E> {
     }
 
     fn check_str(&mut self, string: &str) -> bool {
-        if self.haystack[self.right ..].starts_with(string) {
+        if self.ignore_case {
+            string.chars().all(|ch| self.check_char(ch))
+        } else if self.haystack[self.right ..].starts_with(string) {
             self.right += string.len();
             true
         } else {
@@ -231,12 +234,18 @@ fn eq_ignore_case(lhs: char, rhs: char) -> bool {
 #[test]
 fn check_ignore_case() {
     let pairs = &[
-        ('a', 'a'),
-        ('A', 'A'),
+        ('a', true, 'a'),
+        ('A', true, 'A'),
+        ('a', true, 'A'),
+        ('a', false, 'b'),
     ];
 
-    for &(lhs, rhs) in pairs {
-        assert!(eq_ignore_case(lhs, rhs), "{} != {}", lhs, rhs);
+    for &(lhs, equal, rhs) in pairs {
+        if equal {
+            assert!(eq_ignore_case(lhs, rhs), "{} == {}", lhs, rhs);
+        } else {
+            assert!(!eq_ignore_case(lhs, rhs), "{} != {}", lhs, rhs);
+        }
     }
 }
 
