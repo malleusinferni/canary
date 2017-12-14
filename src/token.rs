@@ -53,21 +53,25 @@ pub enum Interp {
     G(Ident),
 }
 
-pub struct Spanned<T: Iterator<Item=Result<Token>>> {
-    inner: T,
+pub struct Spanned<'a> {
+    inner: Tokenizer<'a>,
 }
 
-impl<T: Iterator<Item=Result<Token>>> Iterator for Spanned<T> {
+impl<'a> Iterator for Spanned<'a> {
     type Item = Result<(usize, Token, usize)>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|r| r.map(|t| (0, t, 0)))
+        self.inner.next().map(|r| r.map(|t| {
+            (self.inner.left, t, self.inner.right)
+        }))
     }
 }
 
 pub struct Tokenizer<'a> {
     input: Peekable<Chars<'a>>,
     strings: Strings,
+    left: usize,
+    right: usize,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -75,10 +79,12 @@ impl<'a> Tokenizer<'a> {
         Tokenizer {
             input: src.chars().peekable(),
             strings: Strings::new(),
+            left: 0,
+            right: 0,
         }
     }
 
-    pub fn spanned(self) -> Spanned<Self> {
+    pub fn spanned(self) -> Spanned<'a> {
         Spanned { inner: self }
     }
 
@@ -87,11 +93,18 @@ impl<'a> Tokenizer<'a> {
     }
 
     pub fn getc(&mut self) -> Option<char> {
-        self.input.next()
+        let next = self.input.next();
+
+        if let Some(c) = next {
+            self.left = self.right;
+            self.right = self.left + c.len_utf8();
+        }
+
+        next
     }
 
     pub fn word(&mut self) -> Option<Result<Ident>> {
-        self.input.next().map(|c| {
+        self.getc().map(|c| {
             self.endword(c)
         })
     }
@@ -101,10 +114,10 @@ impl<'a> Tokenizer<'a> {
 
         word.push(start);
 
-        while let Some(&c) = self.input.peek() {
+        while let Some(c) = self.lookahead() {
             if in_ident(c) {
                 word.push(c);
-                self.input.next();
+                self.getc();
             } else {
                 break;
             }
@@ -118,7 +131,7 @@ impl<'a> Tokenizer<'a> {
 
         let mut items = Vec::new();
 
-        while let Some(ch) = self.input.next() {
+        while let Some(ch) = self.getc() {
             match ch {
                 '"' => return Ok(Token::STR(items)),
 
@@ -136,10 +149,10 @@ impl<'a> Tokenizer<'a> {
                     let mut s = String::new();
                     s.push(other);
 
-                    while let Some(&c) = self.input.peek() {
+                    while let Some(c) = self.lookahead() {
                         if "$%\"".contains(c) { break; }
 
-                        self.input.next();
+                        self.getc();
 
                         if c == '\\' {
                             s.push(self.unescape()?);
@@ -157,7 +170,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn unescape(&mut self) -> Result<char> {
-        Ok(match self.input.next().ok_or(Error::MalformedString)? {
+        Ok(match self.getc().ok_or(Error::MalformedString)? {
             '$' => '$',
             '%' => '%',
             'n' => '\n',
@@ -172,22 +185,22 @@ impl<'a> Iterator for Tokenizer<'a> {
     type Item = Result<Token>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(&s) = self.input.peek() {
+        while let Some(s) = self.lookahead() {
             if s == '#' {
-                while let Some(n) = self.input.next() {
+                while let Some(n) = self.getc() {
                     if n == '\n' {
                         return Some(Ok(Token::EOL));
                     }
                 }
             } else if s.is_whitespace() {
-                let _ = self.input.next();
+                self.getc();
                 continue;
             } else {
                 break;
             }
         }
 
-        let first = self.input.next()?;
+        let first = self.getc()?;
 
         Some(Ok(match first {
             '(' => Token::LPAR,
@@ -206,8 +219,8 @@ impl<'a> Iterator for Tokenizer<'a> {
             '/' => Token::DIV,
             '*' => Token::MUL,
 
-            '=' => if let Some(&'~') = self.input.peek() {
-                self.input.next();
+            '=' => if let Some('~') = self.lookahead() {
+                self.getc();
                 Token::MATCH
             } else {
                 Token::EQUAL
@@ -217,16 +230,16 @@ impl<'a> Iterator for Tokenizer<'a> {
                 return Some(self.interp());
             },
 
-            ':' => match self.input.peek().cloned() {
+            ':' => match self.lookahead() {
                 Some(w) if w.is_alphabetic() => {
-                    self.input.next();
+                    self.getc();
                     let mut word = String::new();
                     word.push(w);
 
-                    while let Some(&w) = self.input.peek() {
+                    while let Some(w) = self.lookahead() {
                         if !in_ident(w) { break; }
                         word.push(w);
-                        self.input.next();
+                        self.getc();
                     }
 
                     Token::SYM(self.strings.intern(word).unwrap())
@@ -236,7 +249,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             },
 
             '$' => {
-                let w = self.input.next()?;
+                let w = self.getc()?;
                 let mut word = String::new();
                 word.push(w);
 
@@ -245,10 +258,10 @@ impl<'a> Iterator for Tokenizer<'a> {
                 } else if !w.is_alphabetic() {
                     unimplemented!("Special vars");
                 } else {
-                    while let Some(&w) = self.input.peek() {
+                    while let Some(w) = self.lookahead() {
                         if !in_ident(w) { break; }
                         word.push(w);
-                        self.input.next();
+                        self.getc();
                     }
 
                     Token::VAR(self.strings.intern(word).unwrap())
@@ -257,13 +270,13 @@ impl<'a> Iterator for Tokenizer<'a> {
 
             '%' => {
                 let mut word = String::new();
-                let w = self.input.next()?;
+                let w = self.getc()?;
 
                 word.push(w);
-                while let Some(&w) = self.input.peek() {
+                while let Some(w) = self.lookahead() {
                     if !in_ident(w) { break; }
                     word.push(w);
-                    self.input.next();
+                    self.getc();
                 }
 
                 Token::GLOBAL(self.strings.intern(word).unwrap())
@@ -272,10 +285,10 @@ impl<'a> Iterator for Tokenizer<'a> {
             w if w.is_alphabetic() => {
                 let mut word = String::new();
                 word.push(w);
-                while let Some(&w) = self.input.peek() {
+                while let Some(w) = self.lookahead() {
                     if !in_ident(w) { break; }
                     word.push(w);
-                    self.input.next();
+                    self.getc();
                 }
 
                 match word.as_ref() {
@@ -297,7 +310,7 @@ impl<'a> Iterator for Tokenizer<'a> {
 
                     _ => {
                         let ident = self.strings.intern(word).unwrap();
-                        if self.input.peek() == Some(&'(') {
+                        if self.lookahead() == Some('(') {
                             Token::NEARWORD(ident)
                         } else {
                             Token::FARWORD(ident)
@@ -309,10 +322,10 @@ impl<'a> Iterator for Tokenizer<'a> {
             d if d.is_digit(10) => {
                 let mut digits = String::new();
                 digits.push(d);
-                while let Some(&d) = self.input.peek() {
+                while let Some(d) = self.lookahead() {
                     if !d.is_digit(10) { break; }
                     digits.push(d);
-                    self.input.next();
+                    self.getc();
                 }
 
                 Token::INT(digits.parse::<Int>().unwrap())
