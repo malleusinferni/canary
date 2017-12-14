@@ -37,12 +37,20 @@ pub enum Leaf {
         invert: bool,
         members: HashSet<char>,
     },
+    Repeat(Box<Leaf>, Repeat),
     Local {
         name: Ident,
     },
     Global {
         name: Ident,
     },
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Repeat {
+    OneOrZero,
+    ZeroOrMore,
+    OneOrMore,
 }
 
 impl Pattern {
@@ -103,42 +111,27 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
 
     fn parse_group(&mut self, end: char) -> Result<Group> {
         let mut branches = vec![];
-        let mut leaves = vec![];
-
-        fn putc(leaves: &mut Vec<Leaf>, ch: char) {
-            if let Some(&mut Leaf::Raw(ref mut string)) = leaves.last_mut() {
-                string.push(ch);
-
-                // Early return instead of "else" so the borrow checker
-                // will understand what we're doing here
-                return;
-            }
-
-            let mut string = String::new();
-            string.push(ch);
-            leaves.push(Leaf::Raw(string));
-        }
+        let mut branch = Branch { leaves: vec![] };
 
         loop {
             let ch = self.consume()?;
 
             if ch == end {
-                branches.push(Branch { leaves });
+                branches.push(branch);
                 return Ok(Group { branches });
             }
 
             match ch {
                 '|' => {
-                    let leaves = leaves.drain(..).collect();
-                    branches.push(Branch { leaves });
+                    branches.push(branch.take());
                 },
 
                 '(' => {
-                    leaves.push(Leaf::Group(self.parse_group(')')?));
+                    branch.push(Leaf::Group(self.parse_group(')')?));
                 },
 
                 '[' => {
-                    leaves.push(self.parse_class()?);
+                    branch.push(self.parse_class()?);
                 },
 
                 ']' | ')' => {
@@ -150,26 +143,38 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                     let next = self.lookahead()?;
 
                     if next == end || next == ')' || next == '|' {
-                        leaves.push(Leaf::AnchorEnd);
+                        branch.push(Leaf::AnchorEnd);
                     } else if next.is_alphabetic() {
                         let name = self.parse_ident()?;
-                        leaves.push(Leaf::Local { name });
+                        branch.push(Leaf::Local { name });
                     } else {
                         return Err(Error::InvalidRegex);
                     }
                 },
 
                 '.' => {
-                    leaves.push(Leaf::ClassDot);
+                    branch.push(Leaf::ClassDot);
+                },
+
+                '+' => {
+                    branch.repeat(Repeat::OneOrMore)?;
+                },
+
+                '*' => {
+                    branch.repeat(Repeat::ZeroOrMore)?;
+                },
+
+                '?' => {
+                    branch.repeat(Repeat::OneOrZero)?;
                 },
 
                 '\\' => {
                     let c = self.consume()?;
 
                     if c == end || "(|).$".contains(c) {
-                        putc(&mut leaves, c);
+                        branch.putchar(c);
                     } else if c == 'd' {
-                        leaves.push(Leaf::ClassDigit);
+                        branch.push(Leaf::ClassDigit);
                     } else {
                         return Err(Error::InvalidRegex);
                     }
@@ -180,7 +185,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                 },
 
                 other => {
-                    putc(&mut leaves, other);
+                    branch.putchar(other);
                 },
             }
         }
@@ -241,5 +246,36 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
 
     fn parse_ident(&mut self) -> Result<Ident> {
         self.stream.word().unwrap_or(Err(Error::InvalidRegex))
+    }
+}
+
+impl Branch {
+    fn push(&mut self, leaf: Leaf) {
+        self.leaves.push(leaf);
+    }
+
+    fn putchar(&mut self, ch: char) {
+        if let Some(&mut Leaf::Raw(ref mut string)) = self.leaves.last_mut() {
+            string.push(ch);
+
+            // Early return instead of "else" so the borrow checker
+            // will understand what we're doing here
+            return;
+        }
+
+        let mut string = String::new();
+        string.push(ch);
+        self.push(Leaf::Raw(string));
+    }
+
+    fn repeat(&mut self, kind: Repeat) -> Result<()> {
+        let last = self.leaves.pop().ok_or(Error::InvalidRegex)?;
+        self.push(Leaf::Repeat(last.into(), kind));
+        Ok(())
+    }
+
+    fn take(&mut self) -> Self {
+        let leaves = self.leaves.drain(..).collect();
+        Branch { leaves }
     }
 }
