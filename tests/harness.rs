@@ -5,7 +5,12 @@ macro_rules! generate {
         #[test]
         fn $name() {
             let path = format!("tests/{}.cy", stringify!($name));
-            let _ = canary::compile(path).unwrap().start().unwrap();
+            canary::compile(path)
+                .and_then(|env| env.start())
+                .unwrap_or_else(|err| {
+                    println!("Error: {}", err);
+                    panic!("Test aborted");
+                });
         }
     }
 }

@@ -124,11 +124,6 @@ impl Module {
             Record::new(HashMap::new().into())
         }))?;
 
-        std.def_native("assert", Exactly(1), |args| Ok({
-            let arg = args.into_iter().next().unwrap();
-            assert!(bool::extract(arg)?);
-        }))?;
-
         std.def_native("assert_eq", Exactly(2), |mut args| Ok({
             let rhs = args.pop().unwrap();
             let lhs = args.pop().unwrap();
@@ -239,6 +234,7 @@ impl<'a> Assembler<'a> {
             Op::CALL { name, argc } => Op::CALL { name, argc },
             Op::BINOP { op } => Op::BINOP { op },
             Op::MARK { len } => Op::MARK { len },
+            Op::ASSERT { expr } => Op::ASSERT { expr },
         })).collect::<Result<Vec<Op>>>()?;
 
         Ok(InterpretedFn::from_vec(code))
@@ -296,6 +292,12 @@ impl<'a> Assembler<'a> {
             Stmt::Return { rhs } => {
                 self.tr_expr(rhs.unwrap_or(Expr::Literal(Literal::Nil)))?;
                 self.emit(Op::RET);
+            },
+
+            Stmt::Assert { rhs } => {
+                let expr = (&rhs).to_string();
+                self.tr_expr(rhs)?;
+                self.emit(Op::ASSERT { expr });
             },
 
             Stmt::If { clauses, last } => {

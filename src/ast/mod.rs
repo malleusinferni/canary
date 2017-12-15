@@ -36,6 +36,10 @@ pub enum Stmt {
         rhs: Option<Expr>,
     },
 
+    Assert {
+        rhs: Expr,
+    },
+
     If {
         clauses: Vec<(Expr, Vec<Stmt>)>,
         last: Vec<Stmt>,
@@ -120,6 +124,93 @@ pub enum Literal {
 impl Binop {
     pub fn apply(self, lhs: Expr, rhs: Expr) -> Expr {
         Expr::Binop { lhs: Box::new(lhs), op: self, rhs: Box::new(rhs) }
+    }
+}
+
+mod display {
+    use std::fmt::{Display, Formatter, Result};
+
+    use super::*;
+
+    fn uncomma<T: Display>(items: &[T]) -> String {
+        items.iter()
+            .map(|item| item.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    impl Display for Expr {
+        fn fmt(&self, f: &mut Formatter) -> Result {
+            match *self {
+                Expr::Literal(ref lit) => {
+                    write!(f, "{}", lit)
+                },
+
+                Expr::And { ref lhs, ref rhs } => {
+                    write!(f, "{} and {}", lhs, rhs)
+                },
+
+                Expr::Or { ref lhs, ref rhs } => {
+                    write!(f, "{} or {}", lhs, rhs)
+                },
+
+                Expr::Not(ref rhs) => {
+                    write!(f, "not {}", rhs)
+                },
+
+                Expr::Binop { ref lhs, op, ref rhs } => match op {
+                    Binop::Add => write!(f, "{} + {}", lhs, rhs),
+                    Binop::Sub => write!(f, "{} - {}", lhs, rhs),
+                    Binop::Div => write!(f, "{} / {}", lhs, rhs),
+                    Binop::Mul => write!(f, "{} * {}", lhs, rhs),
+                    Binop::Idx => write!(f, "{}[{}]", lhs, rhs),
+                    Binop::Match => write!(f, "{} =~ {}", lhs, rhs),
+                    Binop::Equal => write!(f, "{} eq {}", lhs, rhs),
+                    Binop::NotEqual => write!(f, "{} ne {}", lhs, rhs),
+                },
+
+                Expr::Local(ref id) => {
+                    write!(f, "${}", id)
+                },
+
+                Expr::Global(ref id) => {
+                    write!(f, "%{}", id)
+                },
+
+                Expr::Str(ref _items) => {
+                    // FIXME
+                    write!(f, "{{interpolated string}}")
+                },
+
+                Expr::Group(num) => {
+                    write!(f, "${}", num)
+                },
+
+                Expr::List(ref items) => {
+                    write!(f, "[{}]", uncomma(items))
+                },
+
+                Expr::Record(_) => {
+                    write!(f, "{{record}}")
+                },
+
+                Expr::Call { ref name, ref args } => {
+                    write!(f, "{}({})", name, uncomma(args))
+                },
+            }
+        }
+    }
+
+    impl Display for Literal {
+        fn fmt(&self, f: &mut Formatter) -> Result {
+            match *self {
+                Literal::Nil => write!(f, "()"),
+                Literal::Int(i) => write!(f, "{}", i),
+                Literal::Str(ref s) => write!(f, "{:?}", s),
+                Literal::Ident(ref n) => write!(f, ":{}", n),
+                Literal::Pattern(ref p) => p.fmt(f),
+            }
+        }
     }
 }
 

@@ -53,6 +53,7 @@ pub enum Op<Label=usize> {
     JUMP { dst: Label, },
     JNZ { dst: Label, },
     MARK { len: usize, },
+    ASSERT { expr: String, },
 }
 
 #[derive(Copy, Clone, Debug)]

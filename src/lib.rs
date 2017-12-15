@@ -33,6 +33,11 @@ pub fn compile<P: AsRef<Path>>(path: P) -> Result<opcode::Module> {
 
 #[derive(Debug, Fail)]
 pub enum Error {
+    #[fail(display="assert failed: {}", expr)]
+    Assert {
+        expr: String,
+    },
+
     #[fail(display="stack underflow")]
     StackUnderflow,
 

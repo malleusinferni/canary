@@ -45,6 +45,10 @@ simple_stmt: Stmt = {
         Stmt::Return { rhs }
     },
 
+    "assert" <rhs:expr> => {
+        Stmt::Assert { rhs }
+    },
+
     <rhs:expr> => {
         Stmt::Bare { rhs }
     },
@@ -189,6 +193,7 @@ extern {
         "if" => Token::IF,
         "else" => Token::ELSE,
         "while" => Token::WHILE,
+        "assert" => Token::ASSERT,
         "eq" => Token::EQ,
         "ne" => Token::NE,
         "and" => Token::AND,

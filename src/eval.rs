@@ -200,6 +200,12 @@ impl Interpreter {
                 }
             },
 
+            Op::ASSERT { expr } => {
+                if !(self.pop::<bool>()?) {
+                    return Err(Error::Assert { expr });
+                }
+            },
+
             Op::MARK { len } => {
                 if len > self.frame.locals.len() {
                     return Err(Error::MarkTooHigh);
