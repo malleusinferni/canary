@@ -199,6 +199,10 @@ impl<'a> Assembler<'a> {
     }
 
     fn build(self) -> Result<InterpretedFn> {
+        if self.scopes.len() != 1 {
+            return Err(Error::InternalCompilerErr);
+        }
+
         let Assembler { code, labels, .. } = self;
 
         let resolve = |label| -> Result<usize> {

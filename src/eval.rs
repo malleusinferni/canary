@@ -213,6 +213,7 @@ impl Interpreter {
                 }
 
                 self.frame.mark = len;
+                self.frame.locals.drain(len ..);
             },
 
             Op::CALL { name, argc } => {
