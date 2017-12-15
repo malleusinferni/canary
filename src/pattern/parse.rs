@@ -32,7 +32,11 @@ pub enum Leaf<Local=Ident> {
     Class(Class),
     AnchorStart,
     AnchorEnd,
-    Repeat(Box<Leaf<Local>>, Repeat),
+    Repeat {
+        prefix: Box<Leaf<Local>>,
+        times: Repeat,
+        suffix: Branch<Local>,
+    },
     Local {
         name: Local,
     },
@@ -59,6 +63,21 @@ pub enum Repeat {
     ZeroOrMore,
     OneOrMore,
     Count(usize),
+}
+
+enum Item {
+    Leaf {
+        leaf: Leaf<Ident>,
+    },
+
+    Repeat {
+        prefix: Box<Leaf<Ident>>,
+        times: Repeat,
+    },
+}
+
+struct Tree {
+    items: Vec<Item>,
 }
 
 impl Pattern {
@@ -121,27 +140,27 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
         self.group_number += 1;
 
         let mut branches = vec![];
-        let mut branch = Branch { leaves: vec![] };
+        let mut tree = Tree { items: vec![] };
 
         loop {
             let ch = self.consume()?;
 
             if ch == end {
-                branches.push(branch);
+                branches.push(tree.take()?);
                 return Ok(Group { number, branches });
             }
 
             match ch {
                 '|' => {
-                    branches.push(branch.take());
+                    branches.push(tree.take()?);
                 },
 
                 '(' => {
-                    branch.push(Leaf::Group(self.parse_group(')')?));
+                    tree.push(Leaf::Group(self.parse_group(')')?));
                 },
 
                 '[' => {
-                    branch.push(self.parse_class().map(Leaf::Class)?);
+                    tree.push(self.parse_class().map(Leaf::Class)?);
                 },
 
                 '{' => {
@@ -163,7 +182,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                         Error::InvalidRegex
                     })?;
 
-                    branch.repeat(Repeat::Count(count))?;
+                    tree.repeat(Repeat::Count(count))?;
                 },
 
                 '}' | ']' | ')' => {
@@ -172,17 +191,17 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                 },
 
                 '^' => {
-                    branch.push(Leaf::AnchorStart);
+                    tree.push(Leaf::AnchorStart);
                 },
 
                 '$' => {
                     let next = self.lookahead()?;
 
                     if next == end || next == ')' || next == '|' {
-                        branch.push(Leaf::AnchorEnd);
+                        tree.push(Leaf::AnchorEnd);
                     } else if next.is_alphabetic() {
                         let name = self.parse_ident()?;
-                        branch.push(Leaf::Local { name });
+                        tree.push(Leaf::Local { name });
                     } else {
                         return Err(Error::InvalidRegex);
                     }
@@ -190,32 +209,32 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
 
                 '%' => {
                     let name = self.parse_ident()?;
-                    branch.push(Leaf::Global { name });
+                    tree.push(Leaf::Global { name });
                 },
 
                 '.' => {
-                    branch.push(Leaf::Class(Class::Dot));
+                    tree.push(Leaf::Class(Class::Dot));
                 },
 
                 '+' => {
-                    branch.repeat(Repeat::OneOrMore)?;
+                    tree.repeat(Repeat::OneOrMore)?;
                 },
 
                 '*' => {
-                    branch.repeat(Repeat::ZeroOrMore)?;
+                    tree.repeat(Repeat::ZeroOrMore)?;
                 },
 
                 '?' => {
-                    branch.repeat(Repeat::OneOrZero)?;
+                    tree.repeat(Repeat::OneOrZero)?;
                 },
 
                 '\\' => {
                     let c = self.consume()?;
 
                     if c == end || "|()[]{}.^$?*+\\".contains(c) {
-                        branch.putchar(c);
+                        tree.putchar(c);
                     } else {
-                        branch.push(Leaf::Class(match c {
+                        tree.push(Leaf::Class(match c {
                             'd' => Class::Digit,
                             'w' => Class::Word,
                             's' => Class::Space,
@@ -229,7 +248,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                 },
 
                 other => {
-                    branch.putchar(other);
+                    tree.putchar(other);
                 },
             }
         }
@@ -297,13 +316,13 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
     }
 }
 
-impl Branch {
+impl Tree {
     fn push(&mut self, leaf: Leaf) {
-        self.leaves.push(leaf);
+        self.items.push(Item::Leaf { leaf });
     }
 
     fn putchar(&mut self, ch: char) {
-        if let Some(&mut Leaf::Raw(ref mut string)) = self.leaves.last_mut() {
+        if let Some(string) = self.last_mut() {
             string.push(ch);
 
             // Early return instead of "else" so the borrow checker
@@ -316,15 +335,56 @@ impl Branch {
         self.push(Leaf::Raw(string));
     }
 
-    fn repeat(&mut self, kind: Repeat) -> Result<()> {
-        let last = self.leaves.pop().ok_or(Error::InvalidRegex)?;
-        self.push(Leaf::Repeat(last.into(), kind));
-        Ok(())
+    fn last_mut(&mut self) -> Option<&mut String> {
+        self.items.last_mut().and_then(|item| match *item {
+            Item::Leaf { ref mut leaf } => Some(leaf),
+            _ => None,
+        }).and_then(|leaf| match *leaf {
+            Leaf::Raw(ref mut string) => Some(string),
+            _ => None,
+        })
     }
 
-    fn take(&mut self) -> Self {
-        let leaves = self.leaves.drain(..).collect();
-        Branch { leaves }
+    fn repeat(&mut self, times: Repeat) -> Result<()> {
+        if let Some(Item::Leaf { leaf }) = self.items.pop() {
+            self.items.push(Item::Repeat {
+                times,
+                prefix: Box::new(leaf),
+            });
+            Ok(())
+        } else {
+            Err(Error::InvalidRegex)
+        }
+    }
+
+    fn take(&mut self) -> Result<Branch<Ident>> {
+        use std::vec::Drain;
+
+        fn get(stream: &mut Drain<Item>) -> Result<Branch<Ident>> {
+            let mut leaves = vec![];
+
+            while let Some(item) = stream.next() {
+                match item {
+                    Item::Leaf { leaf } => {
+                        leaves.push(leaf);
+                    },
+
+                    Item::Repeat { prefix, times } => {
+                        let suffix = get(stream)?;
+
+                        leaves.push(Leaf::Repeat {
+                            prefix,
+                            times,
+                            suffix,
+                        });
+                    },
+                }
+            }
+
+            Ok(Branch { leaves })
+        }
+
+        get(&mut self.items.drain(..))
     }
 }
 
@@ -345,17 +405,21 @@ mod display {
 
     impl<Local: Display> Display for Group<Local> {
         fn fmt(&self, f: &mut Formatter) -> Result {
-            let branches = self.branches.iter().map(|branch| {
-                let mut buf = String::new();
-
-                for leaf in &branch.leaves {
-                    buf += &leaf.to_string();
-                }
-
-                buf
-            }).collect::<Vec<String>>();
+            let branches = self.branches.iter()
+                .map(|branch| branch.to_string())
+                .collect::<Vec<String>>();
 
             write!(f, "{}", branches.join("|"))
+        }
+    }
+
+    impl<Local: Display> Display for Branch<Local> {
+        fn fmt(&self, f: &mut Formatter) -> Result {
+            for leaf in self.leaves.iter() {
+                leaf.fmt(f)?;
+            }
+
+            Ok(())
         }
     }
 
@@ -378,13 +442,15 @@ mod display {
 
                 Leaf::Class(ref class) => class.fmt(f),
 
-                Leaf::Repeat(ref leaf, kind) => {
-                    write!(f, "{}{}", leaf, match kind {
+                Leaf::Repeat { ref prefix, times, ref suffix } => {
+                    write!(f, "{}{}", prefix, match times {
                         Repeat::OneOrZero => "?",
                         Repeat::OneOrMore => "+",
                         Repeat::ZeroOrMore => "*",
                         Repeat::Count(_) => "{...}",
-                    })
+                    })?;
+
+                    suffix.fmt(f)
                 },
 
                 Leaf::Local { ref name } => {

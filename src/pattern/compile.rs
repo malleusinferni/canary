@@ -51,9 +51,18 @@ impl<In> Leaf<In> {
 
             Leaf::Group(ref group) => Leaf::Group(group.map(f)?),
 
-            Leaf::Repeat(ref leaf, repeat) => {
-                let leaf = Box::new(leaf.map(f)?);
-                Leaf::Repeat(leaf, repeat)
+            Leaf::Repeat { ref prefix, times, ref suffix } => {
+                let prefix = Box::new(prefix.map(f)?);
+
+                let suffix = {
+                    let leaves = suffix.leaves.iter().map(|leaf| {
+                        leaf.map(f)
+                    }).collect::<Result<Vec<_>>>()?;
+
+                    Branch { leaves }
+                };
+
+                Leaf::Repeat { prefix, times, suffix }
             },
 
             Leaf::Raw(ref string) => Leaf::Raw(string.clone()),

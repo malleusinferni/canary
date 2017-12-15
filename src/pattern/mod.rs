@@ -164,8 +164,8 @@ impl<'a, E: Env> Matcher<'a, E> {
                 self.check_class(class)
             },
 
-            Leaf::Repeat(ref leaf, count) => {
-                self.repeat_leaf(leaf, count)
+            Leaf::Repeat { ref prefix, times, ref suffix } => {
+                self.repeat(prefix, times, suffix)
             },
 
             Leaf::Local { name } => {
@@ -183,32 +183,46 @@ impl<'a, E: Env> Matcher<'a, E> {
         }
     }
 
-    fn repeat_leaf(&mut self, leaf: &Leaf<usize>, count: Repeat) -> bool {
-        let (min, max) = match count {
+    fn repeat(&mut self, prefix: &Leaf<usize>, times: Repeat, suffix: &Branch<usize>) -> bool {
+        let (min, max) = match times {
             Repeat::OneOrZero => (0, Some(1)),
             Repeat::ZeroOrMore => (0, None),
             Repeat::OneOrMore => (1, None),
             Repeat::Count(n) => (n, Some(n)),
         };
 
-        let max = max.unwrap_or(self.haystack.len() - self.right);
+        let max = max.unwrap_or(self.haystack[self.right ..].len());
 
         for _ in 0 .. min {
-            if !self.check_leaf(leaf) {
+            if !self.check_leaf(prefix) {
                 return false;
             }
         }
 
-        for _ in min .. max {
-            let here = self.mark();
+        let mut stack = vec![];
 
-            if !self.check_leaf(leaf) {
+        for _ in min .. max {
+            stack.push(self.mark());
+
+            if !(self.check_leaf(prefix) && self.check_branch(suffix)) {
+                break;
+            }
+        }
+
+        while let Some(here) = stack.pop() {
+            self.recall(&here);
+
+            if !self.check_leaf(prefix) {
                 self.recall(&here);
+                continue;
+            }
+
+            if self.check_branch(suffix) {
                 return true;
             }
         }
 
-        true
+        self.check_branch(suffix)
     }
 
     fn check_class(&mut self, class: &Class) -> bool {

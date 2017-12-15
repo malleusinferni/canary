@@ -34,3 +34,9 @@ assert $1 eq "this";
 assert $2 eq "is";
 assert $3 eq "a";
 assert $4 eq "test";
+
+print "Backtracking";
+assert $haystack =~ re/^(.+)s([^a]+)$/;
+assert $0 eq $haystack;
+assert $1 eq "this is a te";
+assert $2 eq "t";
