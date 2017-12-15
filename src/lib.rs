@@ -75,8 +75,10 @@ pub enum Error {
     #[fail(display="feature not implemented: {}", feature)]
     UnimplementedFeature { feature: &'static str },
 
-    #[fail(display="illegal lvalue expression")]
-    IllegalLvalue,
+    #[fail(display="cannot assign into the expression {}", expr)]
+    IllegalLvalue {
+        expr: String,
+    },
 
     #[fail(display="illegal add")]
     IllegalAdd,

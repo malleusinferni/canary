@@ -170,7 +170,7 @@ expr1: Expr = {
 
     "[" <comma<expr>?> "]" => Expr::List((<>).unwrap_or(vec![])),
 
-    "(" <expr> ")" => <>,
+    "(" <expr> ")" => Expr::Parens(Box::new(<>)),
 };
 
 #[inline]

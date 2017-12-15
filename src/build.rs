@@ -175,7 +175,9 @@ impl ast::Expr {
                 Ok(Lvalue::Insert { lhs: *lhs, idx: *rhs })
             },
 
-            _ => Err(Error::IllegalLvalue),
+            other => Err(Error::IllegalLvalue {
+                expr: other.to_string(),
+            }),
         }
     }
 }
@@ -356,6 +358,10 @@ impl<'a> Assembler<'a> {
         use ast::Expr;
 
         match expr {
+            Expr::Parens(expr) => {
+                self.tr_expr(*expr)?;
+            },
+
             Expr::Local(id) => {
                 self.load(id)?;
             },

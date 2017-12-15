@@ -59,6 +59,8 @@ pub enum Stmt {
 
 #[derive(Clone, Debug)]
 pub enum Expr {
+    Parens(Box<Expr>),
+
     Local(Ident),
 
     Global(Ident),
@@ -142,6 +144,10 @@ mod display {
     impl Display for Expr {
         fn fmt(&self, f: &mut Formatter) -> Result {
             match *self {
+                Expr::Parens(ref expr) => {
+                    write!(f, "({})", expr)
+                },
+
                 Expr::Literal(ref lit) => {
                     write!(f, "{}", lit)
                 },
