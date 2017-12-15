@@ -1,30 +1,28 @@
 pub mod parse;
 pub mod compile;
 
+use std::sync::Arc;
+
 use self::parse::*;
 
-use super::*;
 use value::Str;
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Pattern {
-    Resolved(Ast<usize>),
-}
 
 pub type GroupNumber = u8;
 pub type Captures = Vec<(GroupNumber, usize, usize)>;
 
-impl Pattern {
-    pub fn matches<E>(self, env: &mut E, haystack: &str) -> Option<Captures>
-        where E: Env
-    {
-        let ast = match self { Pattern::Resolved(ast) => { ast }, };
-        let Ast { ref root, ignore_case } = ast;
+pub type PatternAst = Ast<Var>;
+pub type PatternExpr = Arc<Ast<Var<usize>>>;
+pub type Pattern = Arc<Ast<Str>>;
+
+pub use self::parse::parse_pattern as parse;
+
+impl Ast<Str> {
+    pub fn matches(&self, haystack: &str) -> Option<Captures> {
+        let Ast { ref root, ignore_case } = *self;
 
         let captures = vec![];
 
         let matcher = Matcher {
-            env,
             haystack,
             captures,
             ignore_case,
@@ -35,13 +33,7 @@ impl Pattern {
     }
 }
 
-pub trait Env {
-    fn read_local(&mut self, usize) -> Str;
-    fn read_global(&mut self, &Ident) -> Option<Str>;
-}
-
-struct Matcher<'a, E: 'a + Env> {
-    env: &'a mut E,
+struct Matcher<'a> {
     haystack: &'a str,
     captures: Vec<(GroupNumber, usize, usize)>,
     ignore_case: bool,
@@ -53,8 +45,8 @@ struct Checkpoint {
     captures: usize,
 }
 
-impl<'a, E: Env> Matcher<'a, E> {
-    fn check_root(mut self, root: &Group<usize>) -> Option<Captures> {
+impl<'a> Matcher<'a> {
+    fn check_root(mut self, root: &Group<Str>) -> Option<Captures> {
         let haystack = self.haystack;
 
         for (left, _) in haystack.char_indices() {
@@ -117,7 +109,7 @@ impl<'a, E: Env> Matcher<'a, E> {
         }
     }
 
-    fn check_group(&mut self, group: &Group<usize>) -> bool {
+    fn check_group(&mut self, group: &Group<Str>) -> bool {
         let here = self.mark();
 
         for branch in group.branches.iter() {
@@ -132,7 +124,7 @@ impl<'a, E: Env> Matcher<'a, E> {
         false
     }
 
-    fn check_branch(&mut self, branch: &Branch<usize>) -> bool {
+    fn check_branch(&mut self, branch: &Branch<Str>) -> bool {
         for leaf in branch.leaves.iter() {
             if !self.check_leaf(leaf) {
                 return false;
@@ -142,7 +134,7 @@ impl<'a, E: Env> Matcher<'a, E> {
         true
     }
 
-    fn check_leaf(&mut self, leaf: &Leaf<usize>) -> bool {
+    fn check_leaf(&mut self, leaf: &Leaf<Str>) -> bool {
         match *leaf {
             Leaf::AnchorStart => {
                 self.right == 0
@@ -168,22 +160,13 @@ impl<'a, E: Env> Matcher<'a, E> {
                 self.repeat(prefix, times, suffix)
             },
 
-            Leaf::Local { name } => {
-                let string = self.env.read_local(name);
-                self.check_str(&string)
-            },
-
-            Leaf::Global { ref name } => {
-                if let Some(string) = self.env.read_global(name) {
-                    self.check_str(&string)
-                } else {
-                    false
-                }
+            Leaf::Payload(ref string) => {
+                self.check_str(string)
             },
         }
     }
 
-    fn repeat(&mut self, prefix: &Leaf<usize>, times: Repeat, suffix: &Branch<usize>) -> bool {
+    fn repeat(&mut self, prefix: &Leaf<Str>, times: Repeat, suffix: &Branch<Str>) -> bool {
         let (min, max) = match times {
             Repeat::OneOrZero => (0, Some(1)),
             Repeat::ZeroOrMore => (0, None),
@@ -287,20 +270,6 @@ fn check_ignore_case() {
             assert!(eq_ignore_case(lhs, rhs), "{} == {}", lhs, rhs);
         } else {
             assert!(!eq_ignore_case(lhs, rhs), "{} != {}", lhs, rhs);
-        }
-    }
-}
-
-mod display {
-    use std::fmt::{Display, Formatter, Result};
-
-    use super::*;
-
-    impl Display for Pattern {
-        fn fmt(&self, f: &mut Formatter) -> Result {
-            match *self {
-                Pattern::Resolved(ref ast) => ast.fmt(f),
-            }
         }
     }
 }

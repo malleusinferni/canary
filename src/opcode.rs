@@ -46,7 +46,7 @@ pub enum Op<Label=usize> {
     PUSHI { int: Int, },
     PUSHS { string: Str, },
     PUSHN { name: Ident, },
-    PAT { pat: Pattern, },
+    PAT { pat: PatternExpr, },
     LIST { len: usize, },
     STR { len: usize, },
     REC,

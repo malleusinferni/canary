@@ -12,18 +12,18 @@ pub struct NamesUsed {
 }
 
 impl<In> Ast<In> {
-    pub fn map_locals<Out, F>(&self, f: F) -> Result<Ast<Out>>
-        where F: Fn(&In) -> Result<Out>
+    pub fn map<Out, F>(&self, mut f: F) -> Result<Ast<Out>>
+        where F: FnMut(&In) -> Result<Out>
     {
         let Ast { ref root, ignore_case } = *self;
-        let root = root.map(&f)?;
+        let root = root.map(&mut f)?;
         Ok(Ast { root, ignore_case })
     }
 }
 
 impl<In> Group<In> {
-    fn map<Out, F>(&self, f: &F) -> Result<Group<Out>>
-        where F: Fn(&In) -> Result<Out>
+    fn map<Out, F>(&self, f: &mut F) -> Result<Group<Out>>
+        where F: FnMut(&In) -> Result<Out>
     {
         let number = self.number;
         let branches = self.branches.iter().map(|branch| {
@@ -37,17 +37,11 @@ impl<In> Group<In> {
 }
 
 impl<In> Leaf<In> {
-    fn map<Out, F>(&self, f: &F) -> Result<Leaf<Out>>
-        where F: Fn(&In) -> Result<Out>
+    fn map<Out, F>(&self, f: &mut F) -> Result<Leaf<Out>>
+        where F: FnMut(&In) -> Result<Out>
     {
         Ok(match *self {
-            Leaf::Local { ref name } => Leaf::Local {
-                name: f(name)?,
-            },
-
-            Leaf::Global { ref name } => Leaf::Global {
-                name: name.clone(),
-            },
+            Leaf::Payload(ref var) => Leaf::Payload(f(var)?),
 
             Leaf::Group(ref group) => Leaf::Group(group.map(f)?),
 

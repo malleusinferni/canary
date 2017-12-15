@@ -2,44 +2,50 @@ use std::collections::HashSet;
 
 use {Result, Error};
 
-use super::*;
+//use super::*;
 
 use ident::*;
 
 use token::Tokenizer;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Ast<Local> {
-    pub root: Group<Local>,
+pub struct Ast<Payload> {
+    pub root: Group<Payload>,
     pub ignore_case: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Group<Local> {
+pub struct Group<Payload> {
     pub number: u8,
-    pub branches: Vec<Branch<Local>>,
+    pub branches: Vec<Branch<Payload>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Branch<Local> {
-    pub leaves: Vec<Leaf<Local>>,
+pub struct Branch<Payload> {
+    pub leaves: Vec<Leaf<Payload>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Leaf<Local> {
-    Group(Group<Local>),
+pub enum Leaf<Payload> {
+    Group(Group<Payload>),
     Raw(String),
     Class(Class),
     AnchorStart,
     AnchorEnd,
     Repeat {
-        prefix: Box<Leaf<Local>>,
+        prefix: Box<Leaf<Payload>>,
         times: Repeat,
-        suffix: Branch<Local>,
+        suffix: Branch<Payload>,
     },
+    Payload(Payload),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Var<Local=Ident> {
     Local {
         name: Local,
     },
+
     Global {
         name: Ident,
     },
@@ -67,11 +73,11 @@ pub enum Repeat {
 
 enum Item {
     Leaf {
-        leaf: Leaf<Ident>,
+        leaf: Leaf<Var>,
     },
 
     Repeat {
-        prefix: Box<Leaf<Ident>>,
+        prefix: Box<Leaf<Var>>,
         times: Repeat,
     },
 }
@@ -80,45 +86,43 @@ struct Tree {
     items: Vec<Item>,
 }
 
-impl Pattern {
-    pub fn parse(stream: &mut Tokenizer) -> Result<Ast<Ident>> {
-        let root = {
-            let group_number = 0;
-            let mut parser = Parser { stream, group_number };
+pub fn parse_pattern(stream: &mut Tokenizer) -> Result<Ast<Var>> {
+    let root = {
+        let group_number = 0;
+        let mut parser = Parser { stream, group_number };
 
-            let open = parser.consume()?;
+        let open = parser.consume()?;
 
-            let close = match open {
-                '(' => ')',
-                '[' => ']',
-                '{' => '}',
-                '<' => '>',
-                '/' => '/',
-                '|' => '|',
-                '"' => '"',
-                _ => return Err(Error::InvalidRegex),
-            };
-
-            parser.parse_group(close)?
+        let close = match open {
+            '(' => ')',
+            '[' => ']',
+            '{' => '}',
+            '<' => '>',
+            '/' => '/',
+            '|' => '|',
+            '"' => '"',
+            _ => return Err(Error::InvalidRegex),
         };
 
-        let mut ignore_case = false;
+        parser.parse_group(close)?
+    };
 
-        while let Some(c) = stream.lookahead() {
-            if !c.is_alphabetic() {
-                break;
-            }
+    let mut ignore_case = false;
 
-            match c {
-                'i' => ignore_case = true,
-                _ => return Err(Error::InvalidRegex),
-            }
-
-            stream.getc();
+    while let Some(c) = stream.lookahead() {
+        if !c.is_alphabetic() {
+            break;
         }
 
-        Ok(Ast { root, ignore_case, })
+        match c {
+            'i' => ignore_case = true,
+            _ => return Err(Error::InvalidRegex),
+        }
+
+        stream.getc();
     }
+
+    Ok(Ast { root, ignore_case, })
 }
 
 struct Parser<'a, 'b : 'a> {
@@ -135,7 +139,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
         self.stream.lookahead().ok_or(Error::InvalidRegex)
     }
 
-    fn parse_group(&mut self, end: char) -> Result<Group<Ident>> {
+    fn parse_group(&mut self, end: char) -> Result<Group<Var>> {
         let number = self.group_number;
         self.group_number += 1;
 
@@ -201,7 +205,8 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                         tree.push(Leaf::AnchorEnd);
                     } else if next.is_alphabetic() {
                         let name = self.parse_ident()?;
-                        tree.push(Leaf::Local { name });
+                        let payload = Var::Local { name };
+                        tree.push(Leaf::Payload(payload));
                     } else {
                         return Err(Error::InvalidRegex);
                     }
@@ -209,7 +214,8 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
 
                 '%' => {
                     let name = self.parse_ident()?;
-                    tree.push(Leaf::Global { name });
+                    let var = Var::Global { name };
+                    tree.push(Leaf::Payload(var));
                 },
 
                 '.' => {
@@ -317,7 +323,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
 }
 
 impl Tree {
-    fn push(&mut self, leaf: Leaf<Ident>) {
+    fn push(&mut self, leaf: Leaf<Var>) {
         self.items.push(Item::Leaf { leaf });
     }
 
@@ -357,10 +363,10 @@ impl Tree {
         }
     }
 
-    fn take(&mut self) -> Result<Branch<Ident>> {
+    fn take(&mut self) -> Result<Branch<Var>> {
         use std::vec::Drain;
 
-        fn get(stream: &mut Drain<Item>) -> Result<Branch<Ident>> {
+        fn get(stream: &mut Drain<Item>) -> Result<Branch<Var>> {
             let mut leaves = vec![];
 
             while let Some(item) = stream.next() {
@@ -396,14 +402,14 @@ mod display {
     use super::*;
     use std::fmt::{Display, Formatter, Result};
 
-    impl<Local: Display> Display for Ast<Local> {
+    impl<Payload: Display> Display for Ast<Payload> {
         fn fmt(&self, f: &mut Formatter) -> Result {
             let flags = if self.ignore_case { "i" } else { "" };
             write!(f, "re/{}/{}", &self.root, flags)
         }
     }
 
-    impl<Local: Display> Display for Group<Local> {
+    impl<Payload: Display> Display for Group<Payload> {
         fn fmt(&self, f: &mut Formatter) -> Result {
             let branches = self.branches.iter()
                 .map(|branch| branch.to_string())
@@ -413,7 +419,7 @@ mod display {
         }
     }
 
-    impl<Local: Display> Display for Branch<Local> {
+    impl<Payload: Display> Display for Branch<Payload> {
         fn fmt(&self, f: &mut Formatter) -> Result {
             for leaf in self.leaves.iter() {
                 leaf.fmt(f)?;
@@ -423,7 +429,7 @@ mod display {
         }
     }
 
-    impl<Local: Display> Display for Leaf<Local> {
+    impl<Payload: Display> Display for Leaf<Payload> {
         fn fmt(&self, f: &mut Formatter) -> Result {
             match *self {
                 Leaf::Group(ref group) => write!(f, "({})", group),
@@ -453,12 +459,8 @@ mod display {
                     suffix.fmt(f)
                 },
 
-                Leaf::Local { ref name } => {
-                    write!(f, "${}", name)
-                },
-
-                Leaf::Global { ref name } => {
-                    write!(f, "%{}", name)
+                Leaf::Payload(ref p) => {
+                    write!(f, "{}", p)
                 },
             }
         }
@@ -479,6 +481,15 @@ mod display {
                         write!(f, "[{}]", members)
                     }
                 },
+            }
+        }
+    }
+
+    impl Display for Var {
+        fn fmt(&self, f: &mut Formatter) -> Result {
+            match *self {
+                Var::Local { ref name } => write!(f, "${}", name),
+                Var::Global { ref name } => write!(f, "%{}", name),
             }
         }
     }

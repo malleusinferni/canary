@@ -117,6 +117,9 @@ pub enum Error {
     #[fail(display="no such label")]
     NoSuchLabel,
 
+    #[fail(display="no such global")]
+    NoSuchGlobal,
+
     #[fail(display="nested functions are unsupported")]
     NonStaticFunction,
 

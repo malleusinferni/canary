@@ -469,13 +469,22 @@ impl<'a> Assembler<'a> {
             },
 
             Literal::Pattern(ast) => {
-                use pattern::Pattern;
+                use pattern::parse::Var;
 
-                let ast = ast.map_locals(|local| {
-                    self.lookup(local.clone())
-                })?;
+                let ast = ast.map(|var| Ok(match *var {
+                    Var::Local { ref name } => {
+                        let name = self.lookup(name.clone())?;
+                        Var::Local { name }
+                    },
 
-                let pat = Pattern::Resolved(ast);
+                    Var::Global { ref name } => {
+                        let name = name.clone();
+                        Var::Global { name }
+                    },
+                }))?;
+
+                let pat = Arc::new(ast);
+
                 self.emit(Op::PAT { pat });
             },
 
