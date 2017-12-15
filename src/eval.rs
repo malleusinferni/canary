@@ -342,18 +342,20 @@ impl Interpreter {
             pat.matches(&mut env, text)
         };
 
-        if let Some(captures) = captures {
-            let groups = &mut self.frame.groups;
+        let groups = &mut self.frame.groups;
 
+        groups.clear();
+
+        Ok(captures.map(|captures| {
             for (id, start, end) in captures.into_iter() {
                 let text = Str::from(&text[start .. end]);
                 groups.insert(id, text);
             }
 
-            Ok(true.into())
-        } else {
-            Ok(false.into())
-        }
+            true
+        }).unwrap_or({
+            false
+        }).into())
     }
 }
 
