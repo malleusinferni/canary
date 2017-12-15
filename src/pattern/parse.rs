@@ -9,24 +9,24 @@ use ident::*;
 use token::Tokenizer;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Ast<Local=Ident> {
+pub struct Ast<Local> {
     pub root: Group<Local>,
     pub ignore_case: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Group<Local=Ident> {
+pub struct Group<Local> {
     pub number: u8,
     pub branches: Vec<Branch<Local>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Branch<Local=Ident> {
+pub struct Branch<Local> {
     pub leaves: Vec<Leaf<Local>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Leaf<Local=Ident> {
+pub enum Leaf<Local> {
     Group(Group<Local>),
     Raw(String),
     Class(Class),
@@ -135,7 +135,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
         self.stream.lookahead().ok_or(Error::InvalidRegex)
     }
 
-    fn parse_group(&mut self, end: char) -> Result<Group> {
+    fn parse_group(&mut self, end: char) -> Result<Group<Ident>> {
         let number = self.group_number;
         self.group_number += 1;
 
@@ -317,7 +317,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
 }
 
 impl Tree {
-    fn push(&mut self, leaf: Leaf) {
+    fn push(&mut self, leaf: Leaf<Ident>) {
         self.items.push(Item::Leaf { leaf });
     }
 
