@@ -187,22 +187,17 @@ impl<'a> Matcher<'a> {
         for _ in min .. max {
             stack.push(self.mark());
 
-            if !(self.check_leaf(prefix) && self.check_branch(suffix)) {
+            if !self.check_leaf(prefix) {
                 break;
             }
         }
 
         while let Some(here) = stack.pop() {
-            self.recall(&here);
-
-            if !self.check_leaf(prefix) {
-                self.recall(&here);
-                continue;
-            }
-
             if self.check_branch(suffix) {
                 return true;
             }
+
+            self.recall(&here);
         }
 
         self.check_branch(suffix)
@@ -272,4 +267,43 @@ fn check_ignore_case() {
             assert!(!eq_ignore_case(lhs, rhs), "{} != {}", lhs, rhs);
         }
     }
+}
+
+#[cfg(test)]
+macro_rules! assert_match {
+    ( $re:expr, $string:expr $(, $capture:expr )* ) => {{
+        use token::{Token, Tokenizer};
+
+        let re: &str = $re;
+        let string: &str = $string;
+        let expected: Vec<&str> = vec![ $( $capture ),* ];
+
+        let ast = match Tokenizer::new(re).next() {
+            Some(Ok(Token::PAT(ast))) => ast,
+            _ => panic!("Failed to parse pattern: {}", re),
+        };
+
+        let pat: Pattern = Arc::new(ast.map(|_| {
+            panic!("Variables not supported")
+        }).unwrap());
+
+        let found = pat.matches(string).unwrap_or_else(|| {
+            panic!("Pattern {} does not match string {:?}", ast, string);
+        });
+
+        for (id, left, right) in found {
+            if let Some(&expected) = expected.get(id as usize) {
+                assert_eq!(expected, &string[left .. right]);
+            }
+        }
+    }}
+}
+
+#[test]
+fn backtracking() {
+    assert_match!("re/./", "the dot", "t");
+    assert_match!("re/\\w/", "word", "w");
+    assert_match!("re/\\w+/", "words", "words");
+    assert_match!("re/CASE/i", "case", "case");
+    assert_match!("re/.+b/", "aaabc", "aaab");
 }
