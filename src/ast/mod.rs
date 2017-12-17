@@ -119,7 +119,7 @@ pub enum Literal {
     Int(Int),
     Str(Str),
     Ident(Ident),
-    Pattern(pattern::PatternAst),
+    Pattern(pattern::Ast),
     Nil,
 }
 

@@ -1,19 +1,8 @@
-use std::collections::HashSet;
-
-use Result;
-
 use super::parse::*;
 
-use ident::*;
-
-pub struct NamesUsed {
-    pub locals: HashSet<Ident>,
-    pub globals: HashSet<Ident>,
-}
-
 impl<In> Ast<In> {
-    pub fn map<Out, F>(&self, mut f: F) -> Result<Ast<Out>>
-        where F: FnMut(&In) -> Result<Out>
+    pub fn map<Out, E, F>(&self, mut f: F) -> Result<Ast<Out>, E>
+        where F: FnMut(&In) -> Result<Out, E>
     {
         let Ast { ref root, ignore_case } = *self;
         let root = root.map(&mut f)?;
@@ -22,23 +11,23 @@ impl<In> Ast<In> {
 }
 
 impl<In> Group<In> {
-    fn map<Out, F>(&self, f: &mut F) -> Result<Group<Out>>
-        where F: FnMut(&In) -> Result<Out>
+    fn map<Out, E, F>(&self, f: &mut F) -> Result<Group<Out>, E>
+        where F: FnMut(&In) -> Result<Out, E>
     {
         let number = self.number;
         let branches = self.branches.iter().map(|branch| {
             let leaves = branch.leaves.iter().map(|leaf| {
                 leaf.map(f)
-            }).collect::<Result<Vec<_>>>()?;
+            }).collect::<Result<Vec<_>, E>>()?;
             Ok(Branch { leaves })
-        }).collect::<Result<Vec<_>>>()?;
+        }).collect::<Result<Vec<_>, E>>()?;
         Ok(Group { branches, number })
     }
 }
 
 impl<In> Leaf<In> {
-    fn map<Out, F>(&self, f: &mut F) -> Result<Leaf<Out>>
-        where F: FnMut(&In) -> Result<Out>
+    fn map<Out, E, F>(&self, f: &mut F) -> Result<Leaf<Out>, E>
+        where F: FnMut(&In) -> Result<Out, E>
     {
         Ok(match *self {
             Leaf::Payload(ref var) => Leaf::Payload(f(var)?),
@@ -51,7 +40,7 @@ impl<In> Leaf<In> {
                 let suffix = {
                     let leaves = suffix.leaves.iter().map(|leaf| {
                         leaf.map(f)
-                    }).collect::<Result<Vec<_>>>()?;
+                    }).collect::<Result<Vec<_>, E>>()?;
 
                     Branch { leaves }
                 };

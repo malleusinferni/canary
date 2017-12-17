@@ -4,7 +4,10 @@ use std::sync::Arc;
 use super::*;
 use ident::*;
 use value::*;
-use pattern::*;
+
+use pattern;
+
+use backpat::GroupNumber;
 
 pub struct Module {
     pub begin: InterpretedFn,
@@ -46,7 +49,7 @@ pub enum Op<Label=usize> {
     PUSHI { int: Int, },
     PUSHS { string: Str, },
     PUSHN { name: Ident, },
-    PAT { pat: PatternExpr, },
+    PAT { pat: pattern::Expr, },
     LIST { len: usize, },
     STR { len: usize, },
     REC,

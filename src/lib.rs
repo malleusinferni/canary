@@ -5,6 +5,8 @@ extern crate failure_derive;
 
 extern crate lalrpop_util;
 
+extern crate backpat;
+
 pub mod ident;
 pub mod pattern;
 pub mod token;

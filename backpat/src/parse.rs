@@ -1,13 +1,5 @@
 use std::collections::HashSet;
 
-use {Result, Error};
-
-//use super::*;
-
-use ident::*;
-
-use token::Tokenizer;
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Ast<Payload> {
     pub root: Group<Payload>,
@@ -40,16 +32,18 @@ pub enum Leaf<Payload> {
     Payload(Payload),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Var<Local=Ident> {
-    Local {
-        name: Local,
-    },
-
-    Global {
-        name: Ident,
-    },
+pub trait TokenStream<Payload> {
+    fn lookahead(&mut self) -> Option<char>;
+    fn getc(&mut self) -> Option<char>;
+    fn parse_payload(&mut self, char) -> Result<Payload>;
 }
+
+#[derive(Debug)]
+pub enum Error {
+    Bad,
+}
+
+pub type Result<T, E=Error> = ::std::result::Result<T, E>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Class {
@@ -71,75 +65,80 @@ pub enum Repeat {
     Count(usize),
 }
 
-enum Item {
+enum Item<Payload> {
     Leaf {
-        leaf: Leaf<Var>,
+        leaf: Leaf<Payload>,
     },
 
     Repeat {
-        prefix: Box<Leaf<Var>>,
+        prefix: Box<Leaf<Payload>>,
         times: Repeat,
     },
 }
 
-struct Tree {
-    items: Vec<Item>,
+struct Tree<Payload> {
+    items: Vec<Item<Payload>>,
 }
 
-pub fn parse_pattern(stream: &mut Tokenizer) -> Result<Ast<Var>> {
-    let root = {
-        let group_number = 0;
-        let mut parser = Parser { stream, group_number };
+impl<Payload> Ast<Payload> {
+    pub fn parse<T: TokenStream<Payload>>(stream: &mut T) -> Result<Self> {
+        let root = {
+            let group_number = 0;
 
-        let open = parser.consume()?;
+            let _marker = None;
+            let mut parser = Parser { stream, group_number, _marker };
 
-        let close = match open {
-            '(' => ')',
-            '[' => ']',
-            '{' => '}',
-            '<' => '>',
-            '/' => '/',
-            '|' => '|',
-            '"' => '"',
-            _ => return Err(Error::InvalidRegex),
+            let open = parser.consume()?;
+
+            let close = match open {
+                '(' => ')',
+                '[' => ']',
+                '{' => '}',
+                '<' => '>',
+                '/' => '/',
+                '|' => '|',
+                '"' => '"',
+                _ => return Err(Error::Bad),
+            };
+
+            parser.parse_group(close)?
         };
 
-        parser.parse_group(close)?
-    };
+        let mut ignore_case = false;
 
-    let mut ignore_case = false;
+        while let Some(c) = stream.lookahead() {
+            if !c.is_alphabetic() {
+                break;
+            }
 
-    while let Some(c) = stream.lookahead() {
-        if !c.is_alphabetic() {
-            break;
+            match c {
+                'i' => ignore_case = true,
+                _ => return Err(Error::Bad),
+            }
+
+            stream.getc();
         }
 
-        match c {
-            'i' => ignore_case = true,
-            _ => return Err(Error::InvalidRegex),
-        }
-
-        stream.getc();
+        Ok(Ast { root, ignore_case, })
     }
-
-    Ok(Ast { root, ignore_case, })
 }
 
-struct Parser<'a, 'b : 'a> {
-    stream: &'a mut Tokenizer<'b>,
+struct Parser<'a, P, T: 'a + TokenStream<P>> {
+    stream: &'a mut T,
     group_number: u8,
+    _marker: Option<Box<P>>,
 }
 
-impl<'a, 'b : 'a> Parser<'a, 'b> {
+impl<'a, P, T: TokenStream<P>> Parser<'a, P, T> {
     fn consume(&mut self) -> Result<char> {
-        self.stream.getc().ok_or(Error::InvalidRegex)
+        self.stream.getc().ok_or(Error::Bad)
     }
 
     fn lookahead(&mut self) -> Result<char> {
-        self.stream.lookahead().ok_or(Error::InvalidRegex)
+        self.stream.lookahead().ok_or(Error::Bad)
     }
 
-    fn parse_group(&mut self, end: char) -> Result<Group<Var>> {
+    fn parse_group(&mut self, end: char) -> Result<Group<P>> {
         let number = self.group_number;
         self.group_number += 1;
 
@@ -178,12 +177,12 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                         } else if d == '}' {
                             break;
                         } else {
-                            return Err(Error::InvalidRegex);
+                            return Err(Error::Bad);
                         }
                     }
 
                     let count = digits.parse::<usize>().map_err(|_| {
-                        Error::InvalidRegex
+                        Error::Bad
                     })?;
 
                     tree.repeat(Repeat::Count(count))?;
@@ -191,7 +190,7 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
 
                 '}' | ']' | ')' => {
                     // Unbalanced delimiters
-                    return Err(Error::InvalidRegex);
+                    return Err(Error::Bad);
                 },
 
                 '^' => {
@@ -204,18 +203,16 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                     if next == end || next == ')' || next == '|' {
                         tree.push(Leaf::AnchorEnd);
                     } else if next.is_alphabetic() {
-                        let name = self.parse_ident()?;
-                        let payload = Var::Local { name };
+                        let payload = self.stream.parse_payload('$')?;
                         tree.push(Leaf::Payload(payload));
                     } else {
-                        return Err(Error::InvalidRegex);
+                        return Err(Error::Bad);
                     }
                 },
 
                 '%' => {
-                    let name = self.parse_ident()?;
-                    let var = Var::Global { name };
-                    tree.push(Leaf::Payload(var));
+                    let payload = self.stream.parse_payload('%')?;
+                    tree.push(Leaf::Payload(payload));
                 },
 
                 '.' => {
@@ -244,13 +241,13 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                             'd' => Class::Digit,
                             'w' => Class::Word,
                             's' => Class::Space,
-                            _ => return Err(Error::InvalidRegex),
+                            _ => return Err(Error::Bad),
                         }));
                     }
                 },
 
                 other if (other as u32) < 0x20 => {
-                    return Err(Error::InvalidRegex);
+                    return Err(Error::Bad);
                 },
 
                 other => {
@@ -287,14 +284,14 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
                             let next = next as u32;
 
                             if prev >= next {
-                                return Err(Error::InvalidRegex)?;
+                                return Err(Error::Bad)?;
                             }
 
                             for ch in prev .. next {
                                 use std::char::from_u32;
 
                                 let ch = from_u32(ch)
-                                    .ok_or(Error::InvalidRegex)?;
+                                    .ok_or(Error::Bad)?;
 
                                 members.insert(ch);
                             }
@@ -316,14 +313,10 @@ impl<'a, 'b : 'a> Parser<'a, 'b> {
 
         Ok(Class::Custom { invert, members })
     }
-
-    fn parse_ident(&mut self) -> Result<Ident> {
-        self.stream.word().unwrap_or(Err(Error::InvalidRegex))
-    }
 }
 
-impl Tree {
-    fn push(&mut self, leaf: Leaf<Var>) {
+impl<Payload> Tree<Payload> {
+    fn push(&mut self, leaf: Leaf<Payload>) {
         self.items.push(Item::Leaf { leaf });
     }
 
@@ -359,14 +352,14 @@ impl Tree {
             });
             Ok(())
         } else {
-            Err(Error::InvalidRegex)
+            Err(Error::Bad)
         }
     }
 
-    fn take(&mut self) -> Result<Branch<Var>> {
+    fn take(&mut self) -> Result<Branch<Payload>> {
         use std::vec::Drain;
 
-        fn get(stream: &mut Drain<Item>) -> Result<Branch<Var>> {
+        fn get<P>(stream: &mut Drain<Item<P>>) -> Result<Branch<P>> {
             let mut leaves = vec![];
 
             while let Some(item) = stream.next() {
@@ -481,15 +474,6 @@ mod display {
                         write!(f, "[{}]", members)
                     }
                 },
-            }
-        }
-    }
-
-    impl Display for Var {
-        fn fmt(&self, f: &mut Formatter) -> Result {
-            match *self {
-                Var::Local { ref name } => write!(f, "${}", name),
-                Var::Global { ref name } => write!(f, "%{}", name),
             }
         }
     }

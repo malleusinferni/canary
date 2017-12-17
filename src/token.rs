@@ -1,7 +1,8 @@
 use super::*;
 use ident::*;
 use value::*;
-use pattern::{self, PatternAst};
+
+use pattern;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
@@ -13,7 +14,7 @@ pub enum Token {
     SYM(Ident),
     INT(Int),
     STR(Vec<Interp>),
-    PAT(PatternAst),
+    PAT(pattern::Ast),
     LPAR,
     RPAR,
     LSQB,
@@ -293,9 +294,9 @@ impl<'a> Tokenizer<'a> {
                     "and" => Token::AND,
                     "or" => Token::OR,
 
-                    "re" => return pattern::parse(self).map(|pat| {
+                    "re" => return pattern::Ast::parse(self).map(|pat| {
                         Token::PAT(pat)
-                    }),
+                    }).map_err(|_| Error::InvalidRegex),
 
                     _ => {
                         if self.lookahead() == Some('(') {

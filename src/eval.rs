@@ -6,6 +6,8 @@ use value::*;
 use opcode::*;
 use pattern::*;
 
+use backpat::GroupNumber;
+
 pub struct Interpreter {
     main: Module,
     strings: Strings,
@@ -290,10 +292,10 @@ impl Interpreter {
         Ok(self.frame.locals.drain(start ..).collect())
     }
 
-    fn compile_pattern(&mut self, pat: PatternExpr) -> Result<Pattern> {
+    fn compile_pattern(&mut self, pat: pattern::Expr) -> Result<Pattern> {
         use std::collections::HashMap;
 
-        use pattern::parse::Var;
+        use pattern::Var;
 
         let mut locals = HashMap::<usize, Str>::new();
         let mut globals = HashMap::<Ident, Str>::new();

@@ -1,22 +1,12 @@
 pub mod parse;
 pub mod compile;
 
-use std::sync::Arc;
-
 use self::parse::*;
-
-use value::Str;
 
 pub type GroupNumber = u8;
 pub type Captures = Vec<(GroupNumber, usize, usize)>;
 
-pub type PatternAst = Ast<Var>;
-pub type PatternExpr = Arc<Ast<Var<usize>>>;
-pub type Pattern = Arc<Ast<Str>>;
-
-pub use self::parse::parse_pattern as parse;
-
-impl Ast<Str> {
+impl<P: AsRef<str>> Ast<P> {
     pub fn matches(&self, haystack: &str) -> Option<Captures> {
         let Ast { ref root, ignore_case } = *self;
 
@@ -46,7 +36,7 @@ struct Checkpoint {
 }
 
 impl<'a> Matcher<'a> {
-    fn check_root(mut self, root: &Group<Str>) -> Option<Captures> {
+    fn check_root<P: AsRef<str>>(mut self, root: &Group<P>) -> Option<Captures> {
         let haystack = self.haystack;
 
         for (left, _) in haystack.char_indices() {
@@ -109,7 +99,7 @@ impl<'a> Matcher<'a> {
         }
     }
 
-    fn check_group(&mut self, group: &Group<Str>) -> bool {
+    fn check_group<P: AsRef<str>>(&mut self, group: &Group<P>) -> bool {
         let here = self.mark();
 
         for branch in group.branches.iter() {
@@ -124,7 +114,7 @@ impl<'a> Matcher<'a> {
         false
     }
 
-    fn check_branch(&mut self, branch: &Branch<Str>) -> bool {
+    fn check_branch<P: AsRef<str>>(&mut self, branch: &Branch<P>) -> bool {
         for leaf in branch.leaves.iter() {
             if !self.check_leaf(leaf) {
                 return false;
@@ -134,7 +124,7 @@ impl<'a> Matcher<'a> {
         true
     }
 
-    fn check_leaf(&mut self, leaf: &Leaf<Str>) -> bool {
+    fn check_leaf<P: AsRef<str>>(&mut self, leaf: &Leaf<P>) -> bool {
         match *leaf {
             Leaf::AnchorStart => {
                 self.right == 0
@@ -161,12 +151,12 @@ impl<'a> Matcher<'a> {
             },
 
             Leaf::Payload(ref string) => {
-                self.check_str(string)
+                self.check_str(string.as_ref())
             },
         }
     }
 
-    fn repeat(&mut self, prefix: &Leaf<Str>, times: Repeat, suffix: &Branch<Str>) -> bool {
+    fn repeat<P: AsRef<str>>(&mut self, prefix: &Leaf<P>, times: Repeat, suffix: &Branch<P>) -> bool {
         let (min, max) = match times {
             Repeat::OneOrZero => (0, Some(1)),
             Repeat::ZeroOrMore => (0, None),

@@ -479,21 +479,25 @@ impl<'a> Assembler<'a> {
             },
 
             Literal::Pattern(ast) => {
-                use pattern::parse::Var;
+                use pattern::{Var, Expr};
+                use backpat::parse::Ast;
 
-                let ast = ast.map(|var| Ok(match *var {
-                    Var::Local { ref name } => {
-                        let name = self.lookup(name.clone())?;
-                        Var::Local { name }
-                    },
+                let ast: Ast<Var<usize>> = ast.map(|var: &Var<Ident>| {
+                    match *var {
+                        Var::Local { ref name } => {
+                            self.lookup(name.clone()).map(|name| {
+                                Var::Local { name }
+                            })
+                        },
 
-                    Var::Global { ref name } => {
-                        let name = name.clone();
-                        Var::Global { name }
-                    },
-                }))?;
+                        Var::Global { ref name } => {
+                            let name = name.clone();
+                            Ok(Var::Global { name })
+                        },
+                    }
+                })?;
 
-                let pat = Arc::new(ast);
+                let pat: Expr = Arc::new(ast);
 
                 self.emit(Op::PAT { pat });
             },

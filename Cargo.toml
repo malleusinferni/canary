@@ -9,3 +9,8 @@ lalrpop = { git = "https://github.com/nikomatsakis/lalrpop.git" }
 failure = "0.1.0"
 failure_derive = "0.1.0"
 lalrpop-util = { git = "https://github.com/nikomatsakis/lalrpop.git" }
+
+[dependencies.backpat]
+path = "backpat"
+
+[workspace]
