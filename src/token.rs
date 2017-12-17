@@ -63,9 +63,11 @@ impl<'a> Iterator for Spanned<'a> {
     type Item = Result<(usize, Token, usize)>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let left = self.inner.right;
+
         self.inner.next().map(|result| match result {
             Ok(t) => {
-                Ok((self.inner.left, t, self.inner.right))
+                Ok((left, t, self.inner.right))
             },
 
             Err(mut err) => {
