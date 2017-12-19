@@ -18,6 +18,8 @@ pub enum Op<Label> {
     DIGIT,
     SPACE,
     STR { index: usize },
+    ANY { index: usize },
+    NONE { index: usize },
 }
 
 pub struct Eval<'a> {
@@ -153,6 +155,14 @@ impl<'a> Eval<'a> {
         }).is_some()
     }
 
+    fn check_char(&mut self, ch: char) -> bool {
+        self.bump() && if self.ic {
+            eq_ignore_case(ch, self.ch)
+        } else {
+            ch == self.ch
+        }
+    }
+
     fn step(&mut self, op: Op<usize>) -> bool {
         match op {
             Op::MARK { label } => {
@@ -242,11 +252,19 @@ impl<'a> Eval<'a> {
 
             Op::STR { index } => {
                 self.code.string(index).chars().all(|ch| {
-                    self.bump() && if self.ic {
-                        eq_ignore_case(ch, self.ch)
-                    } else {
-                        ch == self.ch
-                    }
+                    self.check_char(ch)
+                })
+            },
+
+            Op::ANY { index } => {
+                self.code.string(index).chars().any(|ch| {
+                    self.check_char(ch)
+                })
+            },
+
+            Op::NONE { index } => {
+                !self.code.string(index).chars().any(|ch| {
+                    self.check_char(ch)
                 })
             },
         }

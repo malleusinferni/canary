@@ -116,6 +116,8 @@ impl Ast<String> {
             Op::POINT { sp } => Op::POINT { sp },
             Op::MOV { ix } => Op::MOV { ix },
             Op::STR { index } => Op::STR { index },
+            Op::ANY { index } => Op::ANY { index },
+            Op::NONE { index } => Op::NONE { index },
             Op::LEFT { group } => Op::LEFT { group },
             Op::RIGHT => Op::RIGHT,
             Op::BEGIN => Op::BEGIN,
@@ -199,8 +201,14 @@ impl Compiler {
 
             Leaf::Class(Class::Space) => self.emit(Op::SPACE),
 
-            Leaf::Class(Class::Custom { .. }) => {
-                unimplemented!()
+            Leaf::Class(Class::Custom { invert, ref members }) => {
+                let members = members.iter().collect::<String>();
+                let index = self.intern(&members);
+                if invert {
+                    self.emit(Op::NONE { index });
+                } else {
+                    self.emit(Op::ANY { index });
+                }
             },
 
             Leaf::Repeat { ref prefix, times, .. } => {
@@ -243,16 +251,15 @@ impl Compiler {
     }
 
     fn tr_string(&mut self, string: &str) {
-        let index = match self.strings.iter().position(|s| s == string) {
-            Some(i) => i,
-
-            None => {
-                let index = self.strings.len();
-                self.strings.push(string.to_owned());
-                index
-            },
-        };
-
+        let index = self.intern(string);
         self.emit(Op::STR { index });
+    }
+
+    fn intern(&mut self, string: &str) -> usize {
+        self.strings.iter().position(|s| s == string).unwrap_or_else(|| {
+            let index = self.strings.len();
+            self.strings.push(string.to_owned());
+            index
+        })
     }
 }
