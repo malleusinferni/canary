@@ -297,8 +297,8 @@ impl Interpreter {
 
         use pattern::Var;
 
-        let mut locals = HashMap::<usize, Str>::new();
-        let mut globals = HashMap::<Ident, Str>::new();
+        let mut locals = HashMap::<usize, String>::new();
+        let mut globals = HashMap::<Ident, String>::new();
 
         pat.map(|var| Ok(match *var {
             Var::Local { name } => {
@@ -323,7 +323,7 @@ impl Interpreter {
                 globals.get(name).cloned()
                     .ok_or(Error::NoSuchGlobal)?
             },
-        })).map(|pat| pat.into())
+        })).map(|pat| pat.translate().into())
     }
 
     fn match_pattern(&mut self, pat: Value, text: Value) -> Result<Value> {
@@ -339,7 +339,7 @@ impl Interpreter {
         groups.clear();
 
         Ok(captures.map(|captures| {
-            for (id, start, end) in captures.into_iter() {
+            for (id, (start, end)) in captures.into_iter() {
                 let text = Str::from(&text[start .. end]);
                 groups.insert(id, text);
             }

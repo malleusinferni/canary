@@ -1,15 +1,14 @@
 use std::sync::Arc;
 
-use backpat::parse;
+use backpat::{parse, compile};
 use backpat::parse::{TokenStream, Error};
 
 use ident::*;
-use value::*;
 use token::*;
 
 pub type Ast = parse::Ast<Var<Ident>>;
 pub type Expr = Arc<parse::Ast<Var<usize>>>;
-pub type Pattern = Arc<parse::Ast<Str>>;
+pub type Pattern = Arc<compile::Compiled>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Var<Local> {

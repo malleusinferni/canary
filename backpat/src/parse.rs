@@ -27,7 +27,6 @@ pub enum Leaf<Payload> {
     Repeat {
         prefix: Box<Leaf<Payload>>,
         times: Repeat,
-        suffix: Branch<Payload>,
     },
     Payload(Payload),
 }
@@ -65,19 +64,8 @@ pub enum Repeat {
     Count(usize),
 }
 
-enum Item<Payload> {
-    Leaf {
-        leaf: Leaf<Payload>,
-    },
-
-    Repeat {
-        prefix: Box<Leaf<Payload>>,
-        times: Repeat,
-    },
-}
-
 struct Tree<Payload> {
-    items: Vec<Item<Payload>>,
+    items: Vec<Leaf<Payload>>,
 }
 
 impl<Payload> Ast<Payload> {
@@ -317,7 +305,7 @@ impl<'a, P, T: TokenStream<P>> Parser<'a, P, T> {
 
 impl<Payload> Tree<Payload> {
     fn push(&mut self, leaf: Leaf<Payload>) {
-        self.items.push(Item::Leaf { leaf });
+        self.items.push(leaf);
     }
 
     fn putchar(&mut self, ch: char) {
@@ -335,20 +323,17 @@ impl<Payload> Tree<Payload> {
     }
 
     fn last_mut(&mut self) -> Option<&mut String> {
-        self.items.last_mut().and_then(|item| match *item {
-            Item::Leaf { ref mut leaf } => Some(leaf),
-            _ => None,
-        }).and_then(|leaf| match *leaf {
+        self.items.last_mut().and_then(|leaf| match *leaf {
             Leaf::Raw(ref mut string) => Some(string),
             _ => None,
         })
     }
 
     fn repeat(&mut self, times: Repeat) -> Result<()> {
-        if let Some(Item::Leaf { leaf }) = self.items.pop() {
-            self.items.push(Item::Repeat {
-                times,
+        if let Some(leaf) = self.items.pop() {
+            self.items.push(Leaf::Repeat {
                 prefix: Box::new(leaf),
+                times,
             });
             Ok(())
         } else {
@@ -357,33 +342,8 @@ impl<Payload> Tree<Payload> {
     }
 
     fn take(&mut self) -> Result<Branch<Payload>> {
-        use std::vec::Drain;
-
-        fn get<P>(stream: &mut Drain<Item<P>>) -> Result<Branch<P>> {
-            let mut leaves = vec![];
-
-            while let Some(item) = stream.next() {
-                match item {
-                    Item::Leaf { leaf } => {
-                        leaves.push(leaf);
-                    },
-
-                    Item::Repeat { prefix, times } => {
-                        let suffix = get(stream)?;
-
-                        leaves.push(Leaf::Repeat {
-                            prefix,
-                            times,
-                            suffix,
-                        });
-                    },
-                }
-            }
-
-            Ok(Branch { leaves })
-        }
-
-        get(&mut self.items.drain(..))
+        let leaves = self.items.drain(..).collect();
+        Ok(Branch { leaves })
     }
 }
 
@@ -441,15 +401,13 @@ mod display {
 
                 Leaf::Class(ref class) => class.fmt(f),
 
-                Leaf::Repeat { ref prefix, times, ref suffix } => {
+                Leaf::Repeat { ref prefix, times } => {
                     write!(f, "{}{}", prefix, match times {
                         Repeat::OneOrZero => "?",
                         Repeat::OneOrMore => "+",
                         Repeat::ZeroOrMore => "*",
                         Repeat::Count(_) => "{...}",
-                    })?;
-
-                    suffix.fmt(f)
+                    })
                 },
 
                 Leaf::Payload(ref p) => {

@@ -40,11 +40,8 @@ assert $haystack =~ re/^.+es(t)$/;
 assert $0 eq $haystack;
 assert $1 eq "t";
 
-# Passing this test is not possible with the AST evaluator. See issue #1.
-if 0 {
-    print "Backtracking with a repeat inside a group";
-    assert $haystack =~ re/^(.+)es(t)$/;
-    assert $0 eq $haystack;
-    assert $1 eq "this is a t";
-    assert $2 eq "t";
-}
+print "Backtracking with a repeat inside a group";
+assert $haystack =~ re/^(.+)es(t)$/;
+assert $0 eq $haystack;
+assert $1 eq "this is a t";
+assert $2 eq "t";

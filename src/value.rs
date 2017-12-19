@@ -302,7 +302,7 @@ impl Display for Value {
                 write!(f, "{{ {} }}", contents)
             },
 
-            Value::Pattern(ref pat) => pat.fmt(f),
+            Value::Pattern(_) => write!(f, "re/.../"),
         }
     }
 }
