@@ -156,7 +156,7 @@ impl<'a> Eval<'a> {
     }
 
     fn check_char(&mut self, ch: char) -> bool {
-        self.bump() && if self.ic {
+        if self.ic {
             eq_ignore_case(ch, self.ch)
         } else {
             ch == self.ch
@@ -252,18 +252,18 @@ impl<'a> Eval<'a> {
 
             Op::STR { index } => {
                 self.code.string(index).chars().all(|ch| {
-                    self.check_char(ch)
+                    self.bump() && self.check_char(ch)
                 })
             },
 
             Op::ANY { index } => {
-                self.code.string(index).chars().any(|ch| {
+                self.bump() && self.code.string(index).chars().any(|ch| {
                     self.check_char(ch)
                 })
             },
 
             Op::NONE { index } => {
-                !self.code.string(index).chars().any(|ch| {
+                self.bump() && !self.code.string(index).chars().any(|ch| {
                     self.check_char(ch)
                 })
             },

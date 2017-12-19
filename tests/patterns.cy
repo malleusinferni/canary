@@ -45,3 +45,6 @@ assert $haystack =~ re/^(.+)es(t)$/;
 assert $0 eq $haystack;
 assert $1 eq "this is a t";
 assert $2 eq "t";
+
+print "Character classes";
+assert $haystack =~ re/[aeiths ]{14}/;
