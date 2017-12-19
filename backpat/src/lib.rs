@@ -42,28 +42,44 @@ fn check_ignore_case() {
 }
 
 #[cfg(test)]
+mod scaffold {
+    use std::iter::Peekable;
+    use std::str::Chars;
+
+    use parse::{TokenStream, Result};
+
+    impl<'a> TokenStream<String> for Peekable<Chars<'a>> {
+        fn getc(&mut self) -> Option<char> {
+            self.next()
+        }
+
+        fn lookahead(&mut self) -> Option<char> {
+            self.peek().cloned()
+        }
+
+        fn parse_payload(&mut self, _sigil: char) -> Result<String> {
+            panic!("Variables not supported in test harness")
+        }
+    }
+}
+
+#[cfg(test)]
 macro_rules! assert_match {
     ( $re:expr, $string:expr $(, $capture:expr )* ) => {{
-        use token::{Token, Tokenizer};
+        use parse::Ast;
 
         let re: &str = $re;
         let string: &str = $string;
         let expected: Vec<&str> = vec![ $( $capture ),* ];
 
-        let ast = match Tokenizer::new(re).next() {
-            Some(Ok(Token::PAT(ast))) => ast,
-            _ => panic!("Failed to parse pattern: {}", re),
-        };
+        let pat = Ast::<String>::parse(&mut re.chars().peekable())
+            .unwrap_or_else(|err| panic!("Parse failed: {}", err));
 
-        let pat: Pattern = Arc::new(ast.map(|_| {
-            panic!("Variables not supported")
-        }).unwrap());
-
-        let found = pat.matches(string).unwrap_or_else(|| {
-            panic!("Pattern {} does not match string {:?}", ast, string);
+        let found = pat.translate().matches(string).unwrap_or_else(|| {
+            panic!("Pattern {} does not match string {:?}", pat, string);
         });
 
-        for (id, left, right) in found {
+        for (id, (left, right)) in found {
             if let Some(&expected) = expected.get(id as usize) {
                 assert_eq!(expected, &string[left .. right]);
             }
@@ -73,9 +89,9 @@ macro_rules! assert_match {
 
 #[test]
 fn backtracking() {
-    assert_match!("re/./", "the dot", "t");
-    assert_match!("re/\\w/", "word", "w");
-    assert_match!("re/\\w+/", "words", "words");
-    assert_match!("re/CASE/i", "case", "case");
-    assert_match!("re/.+b/", "aaabc", "aaab");
+    assert_match!("/./", "the dot", "t");
+    assert_match!("/\\w/", "word", "w");
+    assert_match!("/\\w+/", "words", "words");
+    assert_match!("/CASE/i", "case", "case");
+    assert_match!("/.+b/", "aaabc", "aaab");
 }

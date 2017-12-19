@@ -435,4 +435,12 @@ mod display {
             }
         }
     }
+
+    impl Display for Error {
+        fn fmt(&self, f: &mut Formatter) -> Result {
+            match *self {
+                Error::Bad => write!(f, "invalid parse"),
+            }
+        }
+    }
 }
