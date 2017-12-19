@@ -17,7 +17,7 @@ pub enum Op<Label> {
     WORD,
     DIGIT,
     SPACE,
-    CHAR { ch: char },
+    STR { index: usize },
 }
 
 pub struct Eval<'a> {
@@ -240,12 +240,14 @@ impl<'a> Eval<'a> {
                 self.bump() && self.ch.is_whitespace()
             },
 
-            Op::CHAR { ch } => {
-                self.bump() && if self.ic {
-                    eq_ignore_case(ch, self.ch)
-                } else {
-                    ch == self.ch
-                }
+            Op::STR { index } => {
+                self.code.string(index).chars().all(|ch| {
+                    self.bump() && if self.ic {
+                        eq_ignore_case(ch, self.ch)
+                    } else {
+                        ch == self.ch
+                    }
+                })
             },
         }
     }

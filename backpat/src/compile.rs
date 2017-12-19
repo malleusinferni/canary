@@ -57,6 +57,7 @@ use opcode::*;
 pub struct Compiled {
     code: Vec<Op<usize>>,
     index_space: usize,
+    strings: Vec<String>,
     pub ignore_case: bool,
 }
 
@@ -72,6 +73,10 @@ impl Compiled {
     pub fn loop_count(&self) -> usize {
         self.index_space
     }
+
+    pub fn string(&self, index: usize) -> &str {
+        self.strings[index].as_ref()
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -79,6 +84,7 @@ struct Sym(usize);
 
 struct Compiler {
     code: Vec<Op<Sym>>,
+    strings: Vec<String>,
     next_sym: usize,
     next_sp: usize,
     labels: BTreeMap<Sym, usize>,
@@ -88,6 +94,7 @@ impl Ast<String> {
     pub fn translate(&self) -> Compiled {
         let mut compiler = Compiler {
             code: vec![],
+            strings: vec![],
             next_sym: 0,
             next_sp: 0,
             labels: BTreeMap::new(),
@@ -98,7 +105,7 @@ impl Ast<String> {
         compiler.tr_group(root);
 
         let index_space = compiler.next_sp;
-        let Compiler { code, labels, .. } = compiler;
+        let Compiler { code, labels, strings, .. } = compiler;
 
         let code = code.into_iter().map(|op| match op {
             Op::MARK { label } => Op::MARK { label: labels[&label] },
@@ -108,7 +115,7 @@ impl Ast<String> {
 
             Op::POINT { sp } => Op::POINT { sp },
             Op::MOV { ix } => Op::MOV { ix },
-            Op::CHAR { ch } => Op::CHAR { ch },
+            Op::STR { index } => Op::STR { index },
             Op::LEFT { group } => Op::LEFT { group },
             Op::RIGHT => Op::RIGHT,
             Op::BEGIN => Op::BEGIN,
@@ -120,7 +127,7 @@ impl Ast<String> {
             Op::FAIL => Op::FAIL,
         }).collect::<Vec<Op<usize>>>();
 
-        Compiled { code, index_space, ignore_case }
+        Compiled { code, strings, index_space, ignore_case }
     }
 }
 
@@ -236,8 +243,16 @@ impl Compiler {
     }
 
     fn tr_string(&mut self, string: &str) {
-        for ch in string.chars() {
-            self.emit(Op::CHAR { ch });
-        }
+        let index = match self.strings.iter().position(|s| s == string) {
+            Some(i) => i,
+
+            None => {
+                let index = self.strings.len();
+                self.strings.push(string.to_owned());
+                index
+            },
+        };
+
+        self.emit(Op::STR { index });
     }
 }
