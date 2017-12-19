@@ -151,6 +151,7 @@ expr1: Expr = {
             Interp::S(s) => Expr::Literal(Literal::Str(s)),
             Interp::V(v) => Expr::Local(v),
             Interp::G(g) => Expr::Global(g),
+            Interp::C(c) => Expr::Group(c),
         }).collect()
     }),
 

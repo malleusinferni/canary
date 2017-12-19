@@ -48,3 +48,6 @@ assert $2 eq "t";
 
 print "Character classes";
 assert $haystack =~ re/[aeiths ]{14}/;
+
+print "Captures interpolated in a string";
+assert "$0" eq $haystack;

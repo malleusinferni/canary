@@ -4,6 +4,8 @@ use value::*;
 
 use pattern;
 
+use backpat::GroupNumber;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     NEARWORD(Ident),
@@ -53,6 +55,7 @@ pub enum Interp {
     S(Str),
     V(Ident),
     G(Ident),
+    C(GroupNumber),
 }
 
 pub struct Spanned<'a> {
@@ -180,9 +183,28 @@ impl<'a> Tokenizer<'a> {
                 '"' => return Ok(Token::STR(items)),
 
                 '$' => {
-                    let word = self.word().unwrap_or(Err(err()))?;
-                    items.push(Interp::V(word));
-                }
+                    let c = self.lookahead().ok_or(err())?;
+
+                    if c.is_digit(10) {
+                        let mut digits = String::new();
+                        while let Some(c) = self.lookahead() {
+                            if c.is_digit(10) {
+                                digits.push(c);
+                                self.getc();
+                            } else {
+                                break;
+                            }
+                        }
+
+                        let num = digits.parse::<GroupNumber>()
+                            .map_err(|_| err())?;
+
+                        items.push(Interp::C(num));
+                    } else {
+                        let word = self.word().unwrap_or(Err(err()))?;
+                        items.push(Interp::V(word));
+                    }
+                },
 
                 '%' => {
                     let word = self.word().unwrap_or(Err(err()))?;
