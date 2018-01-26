@@ -3,12 +3,12 @@ name = "canary"
 version = "0.1.0"
 
 [build-dependencies]
-lalrpop = { git = "https://github.com/nikomatsakis/lalrpop.git" }
+lalrpop = "0.14"
 
 [dependencies]
 failure = "0.1.0"
 failure_derive = "0.1.0"
-lalrpop-util = { git = "https://github.com/nikomatsakis/lalrpop.git" }
+lalrpop-util = "0.14"
 
 [dependencies.backpat]
 path = "backpat"
